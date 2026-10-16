@@ -1,14 +1,18 @@
 // 树冠叶片：叶片图集按 alpha 裁剪；颜色 = 图集 × COLOR。
 // COLOR = 顶点色（RGB 每片叶子的色差，A 遮蔽）× MultiMesh 实例颜色（forest.gd 写入的每棵树色调）。
 // 顶点色 A 是 Blender 里按高度和树冠深度算好的遮蔽；法线已在 Blender 里球形化，受光柔和。
-// 叶片随风轻摆，越高摆得越多。
+// 叶片双面渲染，背面沿用正面的球形化法线（不翻转朝向树冠内部），避免背面发黑。
+// 自定义光照：包裹漫反射让受光柔和；接收的阴影只保留 shadow_strength 的深度，
+// 叶片之间互相投下的细碎阴影变浅，树冠成片不斑驳。叶片随风轻摆，越高摆得越多。
 shader_type spatial;
-render_mode cull_disabled, diffuse_lambert_wrap;
+render_mode cull_disabled;
 
 uniform sampler2D leaf_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform float alpha_cut : hint_range(0.0, 1.0) = 0.45;
 uniform float ao_strength : hint_range(0.0, 1.0) = 0.85;
 uniform float ao_light_affect : hint_range(0.0, 1.0) = 0.45;
+uniform float wrap : hint_range(0.0, 1.0) = 0.85;             // 包裹漫反射，越大背光面越亮
+uniform float shadow_strength : hint_range(0.0, 1.0) = 1.0;   // 接收阴影的深度，0 不受阴影
 uniform float wind_strength = 0.05;
 uniform float wind_speed = 1.1;
 uniform float canopy_height = 4.5;   // 网格局部高度，用来算摆动权重
@@ -21,6 +25,9 @@ void vertex() {
 }
 
 void fragment() {
+	if (!FRONT_FACING) {
+		NORMAL = -NORMAL;
+	}
 	vec4 leaf = texture(leaf_atlas, UV);
 	ALBEDO = leaf.rgb * COLOR.rgb;
 	ALPHA = leaf.a;
@@ -29,4 +36,9 @@ void fragment() {
 	AO_LIGHT_AFFECT = ao_light_affect;
 	ROUGHNESS = 0.85;
 	SPECULAR = 0.2;
+}
+
+void light() {
+	float ndl = max(0.0, (dot(NORMAL, LIGHT) + wrap) / ((1.0 + wrap) * (1.0 + wrap)));
+	DIFFUSE_LIGHT += LIGHT_COLOR * ndl * mix(1.0, ATTENUATION, shadow_strength) / PI;
 }
