@@ -6,7 +6,8 @@ extends Node3D
 ## 近处（离空地 far_distance 以内）：随机种树，相邻树冠按大小保持间距；离空地越远树越大，
 ## 林缘多是矮树和灌木（灌木把树干埋进地里），形成错落的层次。近景树投影。
 ## 远处：按网格均匀铺远景树，不投影，用来在任意朝向下铺满远景（远景会被移轴完全虚化）。
-## 每棵树从 tints 里随机取色调，写进 MultiMesh 的实例颜色（着色器里和顶点色相乘）。
+## 每棵树从 tints 里随机取色调，写进 MultiMesh 的实例颜色（着色器里和顶点色相乘）；
+## 离空地越远，色调再逐渐乘上 shade_color，树林压暗偏冷，光线集中在空地上。
 ## 同一种网格的树合并成一个 MultiMesh，整片森林只有几次绘制调用。
 ## 区域都是平铺在地面上的 CSGPolygon3D。改了区域或参数后点「重新生成」。
 ## 实例在运行时生成，不写进场景文件。
@@ -39,6 +40,11 @@ extends Node3D
 @export var far_distance := 28.0
 @export var far_spacing := 7.0
 @export var far_scale := Vector2(1.5, 2.2)
+
+@export_group("明暗")
+## 远处树冠颜色乘上的系数（线性），从离空地边缘 shade_range.x 米开始过渡，到 shade_range.y 米完全生效。
+@export var shade_color := Color(1, 1, 1)
+@export var shade_range := Vector2(4.0, 24.0)
 
 @export_group("")
 @export_tool_button("重新生成") var rebuild_action := _rebuild
@@ -111,7 +117,7 @@ func _rebuild() -> void:
 		placed += 1
 		var sink := bush_sink * s if rng.randf() < bush_chance * (1.0 - g) else 0.0
 		var origin := inv * Vector3(p.x, global_position.y - sink, p.y)
-		_add_instance(near, rng.randi() % near_meshes.size(), origin, s, linear_tints[rng.randi() % linear_tints.size()], rng)
+		_add_instance(near, rng.randi() % near_meshes.size(), origin, s, _shaded(linear_tints[rng.randi() % linear_tints.size()], d), rng)
 
 	# 远处：抖动网格，每格一棵远景树
 	var b: Rect2 = include.bounds
@@ -123,16 +129,21 @@ func _rebuild() -> void:
 			y += far_spacing
 			if not Regions.inside_any(p, [include]) or Regions.inside_any(p, excludes):
 				continue
-			if not clear.is_empty() and Regions.distance_to_edge(p, clear) < far_distance:
+			var d := Regions.distance_to_edge(p, clear) if not clear.is_empty() else far_distance
+			if d < far_distance:
 				continue
 			var s := rng.randf_range(far_scale.x, far_scale.y)
-			_add_instance(far, rng.randi() % far_meshes.size(), inv * Vector3(p.x, global_position.y, p.y), s, linear_tints[rng.randi() % linear_tints.size()], rng)
+			_add_instance(far, rng.randi() % far_meshes.size(), inv * Vector3(p.x, global_position.y, p.y), s, _shaded(linear_tints[rng.randi() % linear_tints.size()], d), rng)
 		x += far_spacing
 
 	for i in near_meshes.size():
 		_add_multimesh(near_meshes[i], near[i], true)
 	for i in far_meshes.size():
 		_add_multimesh(far_meshes[i], far[i], false)
+
+
+func _shaded(tint: Color, edge_distance: float) -> Color:
+	return tint * Color(1, 1, 1).lerp(shade_color, smoothstep(shade_range.x, shade_range.y, edge_distance))
 
 
 func _buckets(count: int) -> Array:
