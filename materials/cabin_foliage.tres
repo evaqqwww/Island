@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/cabin_foliage.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/tint = Color(1, 1, 1, 1)
+shader_parameter/ao_strength = 0.8
+shader_parameter/ao_light_affect = 0.3
+shader_parameter/flutter = 0.015
+shader_parameter/flutter_speed = 2.5

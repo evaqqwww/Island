@@ -1,0 +1,9 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# 本地测试用的导出目录（发布用 docs/）
+/build/
+
+# Blender 自动备份
+*.blend1
