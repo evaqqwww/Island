@@ -59,7 +59,7 @@ shader_parameter/tint = Color(0.78, 0.84, 0.74, 1)
 shader_parameter/tile_size = 4.0
 shader_parameter/clearing_center = Vector2(4, -1.7)
 shader_parameter/clearing_radii = Vector2(10.5, 8)
-shader_parameter/forest_shade = 0.5
+shader_parameter/forest_shade = 0.68
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soil"]
 albedo_color = Color(0.18, 0.22, 0.09, 1)
@@ -336,8 +336,8 @@ max_trees = 260
 tree_scale = Vector2(0.8, 1.8)
 growth_distance = 22.0
 overlap = 0.62
-far_spacing = 6.5
-far_scale = Vector2(2, 2.8)
+far_spacing = 8.0
+far_scale = Vector2(2.4, 3.2)
 
 [node name="Camera" type="Camera3D" parent="."]
 keep_aspect = 0

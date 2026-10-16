@@ -8,7 +8,9 @@
     assets/textures/lawn.png        可平铺的草坪纹理
     assets/trees/trees.glb          树木网格：Tree_A/B/C（近景）和 Tree_A/B/C_Far（远景，叶片更少更大）
     blender/trees.blend             以上内容的 Blender 源文件，引用两张贴图
-树冠由叶片面片堆成，法线朝树冠中心外侧（球形化），受光柔和。
+树冠是一个整体：每个球团里有实心内核（取叶片贴图上一块不透明的叶面颜色，偏暗），
+外面包两层叶片面片，叶片之间的缝隙露出的是同色的内核，不会透出背后的地面。
+法线朝树冠中心外侧（球形化），受光柔和。
 顶点色 Col：RGB 是每片叶子的细微色差，A 是按高度和树冠内外深度算出的遮蔽。
 材质 tree_leaves / tree_bark 只导出名称，Godot 按名称替换成自己的材质。
 """
@@ -19,7 +21,7 @@ import random
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 PROJECT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TEX_DIR = os.path.join(PROJECT, "assets", "textures")
@@ -160,6 +162,8 @@ VARIANTS = {
 }
 GOLDEN = math.pi * (3.0 - math.sqrt(5.0))
 CELLS = [(0, 0), (1, 0), (0, 1), (1, 1)]
+# 圆叶格子里一块不透明、避开叶脉的叶面，内核整体取这里的颜色
+CORE_UV = (0.81, 0.25)
 
 
 def _bezier(p0, p1, p2, n):
@@ -201,7 +205,21 @@ def _card(bm, uv, col, center, normal, tip, size, cell, rgba):
         loop[col] = rgba
 
 
-def build_tree(name, lumps, trunk, leaf_size, coverage, trunk_sides, rng):
+def _core(bm, uv, col, center, radius, segments, zmin, zmax, rng):
+    """树冠球团的实心内核，和叶片同一个材质槽。"""
+    res = bmesh.ops.create_uvsphere(bm, u_segments=segments[0], v_segments=segments[1], radius=radius,
+                                    matrix=Matrix.Translation(center))
+    shade = {v: rng.uniform(0.92, 1.0) for v in res["verts"]}
+    for f in {f for v in res["verts"] for f in v.link_faces}:
+        f.material_index = 0
+        for loop in f.loops:
+            h = (loop.vert.co.z - zmin) / max(zmax - zmin, 0.01)
+            j = shade[loop.vert]
+            loop[uv].uv = CORE_UV
+            loop[col] = (j, j, j, 0.45 + 0.35 * h)
+
+
+def build_tree(name, lumps, trunk, leaf_size, coverage, trunk_sides, core_segments, rng):
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     col = bm.loops.layers.float_color.new("Col")
@@ -234,6 +252,7 @@ def build_tree(name, lumps, trunk, leaf_size, coverage, trunk_sides, rng):
             rgba = (jitter * rng.uniform(0.96, 1.02), jitter * rng.uniform(0.96, 1.02), jitter * rng.uniform(0.96, 1.02),
                     max(0.3, min(1.0, occlusion)))
             _card(bm, uv, col, p, normal, tip, leaf_size * rng.uniform(0.85, 1.2), CELLS[rng.randrange(4)], rgba)
+        _core(bm, uv, col, center, r * 0.88, core_segments, zmin, zmax, rng)
 
     pts = _bezier(*(Vector(p) for p in trunk), 7)
     radii = [0.3, 0.2, 0.17, 0.15, 0.13, 0.12, 0.11]
@@ -321,8 +340,9 @@ def main():
     rng = random.Random(11)
     objects = []
     for i, (key, (lumps, trunk)) in enumerate(VARIANTS.items()):
-        for suffix, leaf_size, coverage, sides, row in (("", 0.48, 1.6, 7, 0.0), ("_Far", 0.85, 1.3, 5, 6.0)):
-            mesh = build_tree(f"Tree_{key}{suffix}", lumps, trunk, leaf_size, coverage, sides, rng)
+        for suffix, leaf_size, coverage, sides, core, row in (("", 0.55, 1.8, 7, (12, 8), 0.0),
+                                                              ("_Far", 0.9, 1.0, 5, (8, 6), 6.0)):
+            mesh = build_tree(f"Tree_{key}{suffix}", lumps, trunk, leaf_size, coverage, sides, core, rng)
             mesh.materials.append(leaves)
             mesh.materials.append(bark)
             ob = bpy.data.objects.new(mesh.name, mesh)
