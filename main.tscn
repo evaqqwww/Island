@@ -15,6 +15,8 @@
 [ext_resource type="Texture2D" path="res://assets/textures/lawn.png" id="18_lawn"]
 [ext_resource type="Script" path="res://scripts/props.gd" id="19_props"]
 [ext_resource type="PackedScene" path="res://assets/farm/farm.glb" id="20_farm"]
+[ext_resource type="Script" path="res://scripts/grass.gd" id="21_grass"]
+[ext_resource type="Shader" path="res://shaders/grass.gdshader" id="22_grass"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.55, 0.66, 0.78, 1)
@@ -78,6 +80,10 @@ albedo_color = Color(0.45, 0.32, 0.2, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_water"]
 render_priority = 0
 shader = ExtResource("6_water")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_grass"]
+render_priority = 0
+shader = ExtResource("22_grass")
 
 [sub_resource type="SphereMesh" id="SphereMesh_shrub"]
 radius = 1.0
@@ -254,6 +260,13 @@ polygon = PackedVector2Array(128.50, 1.70, 127.90, -10.55, 126.10, -22.69, 123.1
 depth = 0.05
 
 [node name="Vegetation" type="Node3D" parent="."]
+
+[node name="Grass" type="MeshInstance3D" parent="Vegetation"]
+cast_shadow = 0
+material_override = SubResource("ShaderMaterial_grass")
+script = ExtResource("21_grass")
+area = NodePath("../../Regions/Clearing")
+exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/FarmYard"), NodePath("../../Regions/PastureMud"), NodePath("../../Regions/Path")])
 
 [node name="BedShrubs" type="MultiMeshInstance3D" parent="Vegetation"]
 cast_shadow = 0

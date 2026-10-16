@@ -194,14 +194,15 @@ def _stone_mat(name, base):
 
 def _materials():
     return {
-        "wall": _planks_mat("cabin_wall", (226, 214, 186), "Z", 1.6, 0.78, wear_strength=0.1),
-        "timber": _mottled_mat("cabin_timber", (106, 76, 50), 7.0, 0.8, 1.1, wear=True),
-        "roof": _island_mat("cabin_roof", [(0.0, _lin((76, 65, 63))), (0.5, _lin((92, 79, 74))), (1.0, _lin((63, 56, 56)))],
+        "wall": _planks_mat("cabin_wall", (180, 192, 206), "Z", 1.6, 0.78, wear_strength=0.1),
+        "timber": _mottled_mat("cabin_timber", (206, 198, 182), 7.0, 0.85, 1.08, wear=True),
+        "roof": _island_mat("cabin_roof", [(0.0, _lin((108, 50, 38))), (0.45, _lin((134, 64, 46))), (0.88, _lin((148, 80, 56))),
+                                            (1.0, _lin((96, 96, 58)))],
                             crevice=0.75),
-        "stone": _stone_mat("cabin_stone", (112, 114, 102)),
-        "chimney": _island_mat("cabin_chimney", [(0.0, _lin((80, 92, 84))), (0.5, _lin((100, 108, 98))), (1.0, _lin((72, 80, 76)))]),
-        "door": _planks_mat("cabin_door", (98, 72, 52), "X", 1.9, 0.45),
-        "frame": _mottled_mat("cabin_frame", (170, 140, 100), 5.0, 0.88, 1.06, wear=True),
+        "stone": _stone_mat("cabin_stone", (150, 146, 138)),
+        "chimney": _island_mat("cabin_chimney", [(0.0, _lin((146, 70, 50))), (0.5, _lin((176, 92, 64))), (1.0, _lin((128, 62, 46)))]),
+        "door": _planks_mat("cabin_door", (156, 98, 56), "X", 1.9, 0.45),
+        "frame": _mottled_mat("cabin_frame", (222, 212, 192), 5.0, 0.9, 1.05, wear=True),
         "glass": _mottled_mat("cabin_glass", (66, 58, 86), 2.0, 0.85, 1.15, rough=0.25),
         "flowers": _island_mat("cabin_flowers", [(0.0, _lin((150, 110, 200))), (0.35, _lin((240, 210, 90))),
                                                  (0.7, _lin((240, 236, 230))), (1.0, _lin((230, 130, 170)))],
@@ -483,7 +484,7 @@ def build(scene_name="Cabin", seed=7):
                 if w < 0.08:
                     break
                 cx = (d * s_mid).x
-                if side > 0 and 0.12 < cx < 1.22 and abs(y + w / 2 - dy) < 0.5:
+                if side > 0 and 0.5 < cx < 1.22 and abs(y + w / 2 - dy) < 0.5:
                     y += w
                     continue
                 th = math.radians(7 + random.uniform(-2.5, 2.5))
