@@ -1,7 +1,8 @@
 @tool
 extends Camera3D
 
-## 环绕目标点的相机：左键拖动旋转，滚轮缩放，空闲几秒后在当前角度附近来回摆动，F 键开关景深。
+## 环绕目标点的相机：左键或单指拖动旋转（水平 360°，俯仰限制在 pitch_limits 内），
+## 滚轮缩放，空闲几秒后在当前角度附近来回摆动，F 键开关景深。
 ## 每帧把到目标点的距离写入景深材质的 focus_distance，保证焦点始终落在目标上。
 
 @export var target := Vector3(0.0, 2.0, 0.0)
@@ -39,7 +40,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_idle = 0.0
 	elif event is InputEventMouseMotion and _dragging:
 		var mm := event as InputEventMouseMotion
-		yaw_deg -= mm.relative.x * 0.25
+		yaw_deg = fposmod(yaw_deg - mm.relative.x * 0.25, 360.0)
 		pitch_deg = clampf(pitch_deg + mm.relative.y * 0.2, pitch_limits.x, pitch_limits.y)
 		_idle = 0.0
 	elif event is InputEventKey and event.pressed and not event.echo:
