@@ -3,12 +3,20 @@ extends MeshInstance3D
 
 ## 草地：在 area 多边形（外扩 margin 米，伸进林缘树冠下）上叠 shell_count 层水平网格（壳层草），
 ## grass.gdshader 按地面草叶贴图的高度通道，把高过每层的草叶抬起来，叠出有厚度、会随风摆动的草坪。
-## exclude_areas（小路、池塘、菜园、泥地、花圃、木屋）不长草：运行时把区域画成遮罩贴图传给着色器，
-## 遮罩按双线性插值采样，区域边缘的草逐渐变矮。只在有草的格子里生成网格，减少重叠绘制。
+## 同时生成地面遮罩贴图（格式见 ground_mask.gdshaderinc），传给壳层草和地面材质 ground_material：
+##   exclude_areas    不长草也不露泥土（木屋、池塘）
+##   dirt_areas       自然泥地（小路、菜园、牧场泥地），边界由着色器加噪声打散
+##   tidy_dirt_areas  整齐泥地（花坛），边界不加噪声
+## 只在可能长草的格子里生成网格，减少重叠绘制。
 ## 网格和遮罩在运行时生成，不写进场景文件。改了区域或参数后点「重新生成」。
 
 @export var area: NodePath
 @export var exclude_areas: Array[NodePath] = []
+@export var dirt_areas: Array[NodePath] = []
+@export var tidy_dirt_areas: Array[NodePath] = []
+@export var ground_material: ShaderMaterial
+## 自然泥地边界的过渡宽度（米）：遮罩 G 通道从边界往里外各 edge_width 米由 0.5 渐变到 1 和 0。
+@export var edge_width := 0.6
 ## area 向外扩展的距离（米），让草一直长到林缘的树冠下面。
 @export var margin := 1.5
 @export var shell_count := 5
@@ -43,25 +51,40 @@ func _rebuild() -> void:
 		bounds = bounds.expand(v)
 	region.bounds = bounds
 	var excludes := Regions.collect(self, exclude_areas)
+	var natural := Regions.collect(self, dirt_areas)
+	var tidy := Regions.collect(self, tidy_dirt_areas)
 
-	# 遮罩：有草为 1，没草为 0
+	# 遮罩：R 能长草，G 自然泥地的有向距离（边界 0.5），B 整齐泥地
 	var w := ceili(bounds.size.x / mask_resolution) + 1
 	var h := ceili(bounds.size.y / mask_resolution) + 1
 	var pixels := PackedByteArray()
-	pixels.resize(w * h)
+	pixels.resize(w * h * 3)
 	for y in h:
 		for x in w:
 			var p := bounds.position + Vector2(x, y) * mask_resolution
-			var grass := Regions.inside_any(p, [region]) and not Regions.inside_any(p, excludes)
-			pixels[y * w + x] = 255 if grass else 0
-	var image := Image.create_from_data(w, h, false, Image.FORMAT_L8, pixels)
-	mat.set_shader_parameter("mask", ImageTexture.create_from_image(image))
+			var o := (y * w + x) * 3
+			pixels[o] = 255 if Regions.inside_any(p, [region]) and not Regions.inside_any(p, excludes) else 0
+			var g := 0.0
+			for a in natural:
+				if not a.bounds.grow(edge_width).has_point(p):
+					continue
+				var sd := Regions.distance_to_edge(p, a)
+				if not Geometry2D.is_point_in_polygon(p, a.polygon):
+					sd = -sd
+				g = maxf(g, clampf(0.5 + sd / (2.0 * edge_width), 0.0, 1.0))
+			pixels[o + 1] = roundi(g * 255.0)
+			pixels[o + 2] = 255 if Regions.inside_any(p, tidy) else 0
+	var image := Image.create_from_data(w, h, false, Image.FORMAT_RGB8, pixels)
+	var texture := ImageTexture.create_from_image(image)
 	# 像素中心对齐：第 0 个像素的中心在 bounds.position
 	var half := Vector2.ONE * mask_resolution * 0.5
-	mat.set_shader_parameter("mask_rect", Vector4(bounds.position.x - half.x, bounds.position.y - half.y,
-			w * mask_resolution, h * mask_resolution))
+	var rect := Vector4(bounds.position.x - half.x, bounds.position.y - half.y, w * mask_resolution, h * mask_resolution)
+	for m in [mat, ground_material]:
+		if m:
+			m.set_shader_parameter("mask", texture)
+			m.set_shader_parameter("mask_rect", rect)
 
-	# 网格：只保留四角或中心有草的格子；层从上往下排
+	# 网格：只保留四角或中心可能长草的格子（能长草、且不在泥地深处）；层从上往下排
 	var inv := global_transform.affine_inverse()
 	var cells: Array[Vector2] = []
 	var nx := ceili(bounds.size.x / cell_size)
@@ -73,7 +96,8 @@ func _rebuild() -> void:
 				var q: Vector2 = (c + s * cell_size - bounds.position) / mask_resolution
 				var px := clampi(roundi(q.x), 0, w - 1)
 				var pz := clampi(roundi(q.y), 0, h - 1)
-				if pixels[pz * w + px] > 0:
+				var o := (pz * w + px) * 3
+				if pixels[o] > 0 and pixels[o + 1] < 242 and pixels[o + 2] < 128:
 					cells.append(c)
 					break
 

@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://assets/trees/trees.glb" id="16_trees"]
 [ext_resource type="Shader" path="res://shaders/ground.gdshader" id="17_ground"]
 [ext_resource type="Texture2D" path="res://assets/textures/grass.png" id="18_grass"]
+[ext_resource type="Texture2D" path="res://assets/textures/dirt.png" id="24_dirt"]
 [ext_resource type="Script" path="res://scripts/props.gd" id="19_props"]
 [ext_resource type="PackedScene" path="res://assets/farm/farm.glb" id="20_farm"]
 [ext_resource type="Script" path="res://scripts/grass.gd" id="21_grass"]
@@ -60,18 +61,12 @@ size = Vector2(360, 360)
 render_priority = 0
 shader = ExtResource("17_ground")
 shader_parameter/grass = ExtResource("18_grass")
+shader_parameter/dirt = ExtResource("24_dirt")
 shader_parameter/tint = Color(1, 1, 1, 1)
 shader_parameter/tile_size = 4.0
 shader_parameter/clearing_center = Vector2(4.5, -1.7)
 shader_parameter/clearing_radii = Vector2(11, 8.4)
 shader_parameter/forest_shade = 0.45
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bed_soil"]
-albedo_color = Color(0.3, 0.21, 0.14, 1)
-roughness = 1.0
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_path"]
-albedo_color = Color(0.45, 0.32, 0.2, 1)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_water"]
 render_priority = 0
@@ -81,6 +76,7 @@ shader = ExtResource("6_water")
 render_priority = 0
 shader = ExtResource("22_grass")
 shader_parameter/grass = ExtResource("18_grass")
+shader_parameter/dirt = ExtResource("24_dirt")
 
 [sub_resource type="SphereMesh" id="SphereMesh_shrub"]
 radius = 1.0
@@ -236,39 +232,34 @@ depth = 0.08
 material = SubResource("ShaderMaterial_water")
 
 [node name="FlowerBed" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.02, 0)
+visible = false
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(2.5, -0.5, 3.6, -0.8, 4.8, -0.4, 5.4, 0.4, 5.3, 1.7, 4.6, 2.7, 3.5, 3, 2.6, 2.4, 2.4, 1)
 depth = 0.08
-material = SubResource("StandardMaterial3D_bed_soil")
 
 [node name="FlowerBed2" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.02, 0)
+visible = false
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(-1.6, 3.6, -0.6, 3.3, 0.8, 3.4, 1.9, 3.8, 2.2, 4.8, 1.9, 5.9, 1, 6.7, -0.3, 6.9, -1.4, 6.4, -1.9, 5.3, -1.9, 4.3)
 depth = 0.08
-material = SubResource("StandardMaterial3D_bed_soil")
 
 [node name="FarmYard" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.022, 0)
+visible = false
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(2.9, 3.9, 9.7, 3.9, 10, 4.2, 10, 7.2, 9.7, 7.5, 2.9, 7.5, 2.6, 7.2, 2.6, 4.2)
 depth = 0.08
-material = SubResource("StandardMaterial3D_path")
 
 [node name="PastureMud" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.022, 0)
+visible = false
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(8.8, -2.4, 9.2, -2.9, 10.5, -2.9, 10.9, -2.4, 11.4, -1.6, 10.9, -0.6, 9.8, -0.3, 8.7, -0.8, 8.4, -1.7)
 depth = 0.08
-material = SubResource("StandardMaterial3D_path")
 
 [node name="Path" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.025, 0)
+visible = false
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(4.7, -2.75, 6.2, -3.15, 8.2, -2.95, 10.2, -3.25, 13.5, -2.95, 13.5, -3.65, 10.2, -3.95, 8.2, -3.65, 6.2, -3.85, 4.7, -3.45)
 depth = 0.08
-material = SubResource("StandardMaterial3D_path")
 
 [node name="Clearing" type="CSGPolygon3D" parent="Regions"]
 visible = false
@@ -289,7 +280,10 @@ cast_shadow = 0
 material_override = SubResource("ShaderMaterial_grass")
 script = ExtResource("21_grass")
 area = NodePath("../../Regions/Clearing")
-exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/FlowerBed2"), NodePath("../../Regions/FarmYard"), NodePath("../../Regions/PastureMud"), NodePath("../../Regions/Path")])
+exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond")])
+dirt_areas = Array[NodePath]([NodePath("../../Regions/Path"), NodePath("../../Regions/FarmYard"), NodePath("../../Regions/PastureMud")])
+tidy_dirt_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/FlowerBed2")])
+ground_material = SubResource("ShaderMaterial_ground")
 
 [node name="RoseBed" type="Node3D" parent="Vegetation"]
 script = ExtResource("23_flower_bed")
