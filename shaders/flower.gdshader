@@ -1,6 +1,7 @@
 // 占位花卉（花穗、小花、花瓣、睡莲叶）：配合 scatter.gd 使用。
 // 每个实例在 color_a 和 color_b 之间随机取色（INSTANCE_CUSTOM.r）；
 // mesh_height 是 mesh 的局部高度（原点在中心），用来算从底部到顶部的渐变，底部 base_fraction 显示为茎叶色。
+// face_up 时（花坛灌木上的扁平花片）法线一律朝上、不做上下渐变：花片无论怎么倾斜都按同样的朝向受光，没有暗面。
 shader_type spatial;
 render_mode cull_disabled;
 
@@ -11,6 +12,7 @@ uniform float base_fraction : hint_range(0.0, 1.0) = 0.0;
 uniform float mesh_height = 1.0;
 uniform float floret_bumps = 0.0;   // 花穗表面的颗粒起伏
 uniform float sway = 0.03;
+uniform bool face_up = false;
 
 varying float v_t;
 varying float v_var;
@@ -25,8 +27,13 @@ void vertex() {
 
 void fragment() {
 	vec3 flower = mix(color_a, color_b, v_var);
-	float stem = smoothstep(base_fraction, base_fraction + 0.08, v_t);
-	ALBEDO = mix(base_color, flower, stem) * mix(0.75, 1.0, v_t);
+	if (face_up) {
+		NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+		ALBEDO = flower;
+	} else {
+		float stem = smoothstep(base_fraction, base_fraction + 0.08, v_t);
+		ALBEDO = mix(base_color, flower, stem) * mix(0.75, 1.0, v_t);
+	}
 	ROUGHNESS = 0.8;
 	SPECULAR = 0.2;
 }

@@ -5,8 +5,8 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
-shader_parameter/color_top = Color(0.4, 0.62, 0.22, 1)
-shader_parameter/color_bottom = Color(0.2, 0.36, 0.12, 1)
+shader_parameter/color_top = Color(0.32, 0.54, 0.26, 1)
+shader_parameter/color_bottom = Color(0.14, 0.29, 0.13, 1)
 shader_parameter/noise_amount = 0.18
 shader_parameter/noise_scale = 3.5
 shader_parameter/leaf_scale = 9.0

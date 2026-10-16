@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" path="res://assets/farm/farm.glb" id="20_farm"]
 [ext_resource type="Script" path="res://scripts/grass.gd" id="21_grass"]
 [ext_resource type="Shader" path="res://shaders/grass.gdshader" id="22_grass"]
+[ext_resource type="Script" path="res://scripts/flower_bed.gd" id="23_flower_bed"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.55, 0.66, 0.78, 1)
@@ -65,15 +66,9 @@ shader_parameter/clearing_center = Vector2(4.5, -1.7)
 shader_parameter/clearing_radii = Vector2(11, 8.4)
 shader_parameter/forest_shade = 0.45
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_ground"]
-render_priority = 0
-shader = ExtResource("17_ground")
-shader_parameter/grass = ExtResource("18_grass")
-shader_parameter/tint = Color(0.32, 0.46, 0.19, 1)
-shader_parameter/tile_size = 3.0
-shader_parameter/clearing_center = Vector2(4.5, -1.7)
-shader_parameter/clearing_radii = Vector2(11, 8.4)
-shader_parameter/forest_shade = 0.68
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bed_soil"]
+albedo_color = Color(0.3, 0.21, 0.14, 1)
+roughness = 1.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_path"]
 albedo_color = Color(0.45, 0.32, 0.2, 1)
@@ -93,20 +88,39 @@ height = 2.0
 radial_segments = 8
 rings = 4
 
-[sub_resource type="SphereMesh" id="SphereMesh_bloom"]
-radius = 0.08
-height = 0.1
-radial_segments = 4
-rings = 1
+[sub_resource type="CylinderMesh" id="CylinderMesh_bloom"]
+top_radius = 0.085
+bottom_radius = 0.085
+height = 0.01
+radial_segments = 6
+rings = 0
+cap_bottom = false
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bloom"]
 render_priority = 0
 shader = ExtResource("5_flower")
 shader_parameter/color_a = Color(0.86, 0.2, 0.22, 1)
 shader_parameter/color_b = Color(0.98, 0.48, 0.52, 1)
-shader_parameter/base_fraction = 0.0
-shader_parameter/mesh_height = 0.1
 shader_parameter/sway = 0.01
+shader_parameter/face_up = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bloom_lavender"]
+render_priority = 0
+shader = ExtResource("5_flower")
+shader_parameter/color_a = Color(0.58, 0.44, 0.86, 1)
+shader_parameter/color_b = Color(0.84, 0.74, 0.96, 1)
+shader_parameter/sway = 0.01
+shader_parameter/face_up = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_stone"]
+radius = 0.1
+height = 0.14
+radial_segments = 6
+rings = 3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stone"]
+vertex_color_use_as_albedo = true
+roughness = 0.9
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_lily_pad"]
 top_radius = 0.2
@@ -226,7 +240,14 @@ position = Vector3(0, 0.02, 0)
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(2.5, -0.5, 3.6, -0.8, 4.8, -0.4, 5.4, 0.4, 5.3, 1.7, 4.6, 2.7, 3.5, 3, 2.6, 2.4, 2.4, 1)
 depth = 0.08
-material = SubResource("ShaderMaterial_bed_ground")
+material = SubResource("StandardMaterial3D_bed_soil")
+
+[node name="FlowerBed2" type="CSGPolygon3D" parent="Regions"]
+position = Vector3(0, 0.02, 0)
+rotation_degrees = Vector3(-90, 0, 0)
+polygon = PackedVector2Array(-1.6, 3.6, -0.6, 3.3, 0.8, 3.4, 1.9, 3.8, 2.2, 4.8, 1.9, 5.9, 1, 6.7, -0.3, 6.9, -1.4, 6.4, -1.9, 5.3, -1.9, 4.3)
+depth = 0.08
+material = SubResource("StandardMaterial3D_bed_soil")
 
 [node name="FarmYard" type="CSGPolygon3D" parent="Regions"]
 position = Vector3(0, 0.022, 0)
@@ -268,29 +289,29 @@ cast_shadow = 0
 material_override = SubResource("ShaderMaterial_grass")
 script = ExtResource("21_grass")
 area = NodePath("../../Regions/Clearing")
-exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/FarmYard"), NodePath("../../Regions/PastureMud"), NodePath("../../Regions/Path")])
+exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/FlowerBed2"), NodePath("../../Regions/FarmYard"), NodePath("../../Regions/PastureMud"), NodePath("../../Regions/Path")])
 
-[node name="BedShrubs" type="MultiMeshInstance3D" parent="Vegetation"]
-cast_shadow = 0
-material_override = ExtResource("13_bed")
-script = ExtResource("2_scatter")
-mesh = SubResource("SphereMesh_shrub")
-count = 18
-include_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
-scale_range = Vector2(0.55, 0.85)
-height_range = Vector2(0.45, 0.6)
+[node name="RoseBed" type="Node3D" parent="Vegetation"]
+script = ExtResource("23_flower_bed")
+areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
 random_seed = 4
+shrub_mesh = SubResource("SphereMesh_shrub")
+shrub_material = ExtResource("13_bed")
+bloom_mesh = SubResource("CylinderMesh_bloom")
+bloom_material = SubResource("ShaderMaterial_bloom")
+stone_mesh = SubResource("SphereMesh_stone")
+stone_material = SubResource("StandardMaterial3D_stone")
 
-[node name="BedBlooms" type="MultiMeshInstance3D" parent="Vegetation"]
-cast_shadow = 0
-material_override = SubResource("ShaderMaterial_bloom")
-script = ExtResource("2_scatter")
-mesh = SubResource("SphereMesh_bloom")
-count = 150
-include_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
-scale_range = Vector2(0.8, 1.3)
-y_offset_range = Vector2(0.3, 0.48)
-random_seed = 6
+[node name="LavenderBed" type="Node3D" parent="Vegetation"]
+script = ExtResource("23_flower_bed")
+areas = Array[NodePath]([NodePath("../../Regions/FlowerBed2")])
+random_seed = 9
+shrub_mesh = SubResource("SphereMesh_shrub")
+shrub_material = ExtResource("13_bed")
+bloom_mesh = SubResource("CylinderMesh_bloom")
+bloom_material = SubResource("ShaderMaterial_bloom_lavender")
+stone_mesh = SubResource("SphereMesh_stone")
+stone_material = SubResource("StandardMaterial3D_stone")
 
 [node name="LilyPads" type="MultiMeshInstance3D" parent="Vegetation"]
 cast_shadow = 0
