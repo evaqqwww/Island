@@ -2,7 +2,7 @@
 extends MeshInstance3D
 
 ## 草地：在 area 多边形（外扩 margin 米，伸进林缘树冠下）上叠 shell_count 层水平网格（壳层草），
-## grass.gdshader 按每层的高度和格子噪声裁出一簇簇草叶，叠出有厚度、会随风摆动的草坪。
+## grass.gdshader 按地面草叶贴图的高度通道，把高过每层的草叶抬起来，叠出有厚度、会随风摆动的草坪。
 ## exclude_areas（小路、池塘、菜园、泥地、花圃、木屋）不长草：运行时把区域画成遮罩贴图传给着色器，
 ## 遮罩按双线性插值采样，区域边缘的草逐渐变矮。只在有草的格子里生成网格，减少重叠绘制。
 ## 网格和遮罩在运行时生成，不写进场景文件。改了区域或参数后点「重新生成」。
@@ -11,7 +11,7 @@ extends MeshInstance3D
 @export var exclude_areas: Array[NodePath] = []
 ## area 向外扩展的距离（米），让草一直长到林缘的树冠下面。
 @export var margin := 1.5
-@export var shell_count := 12
+@export var shell_count := 5
 ## 每层网格的格子边长（米）。
 @export var cell_size := 1.0
 ## 遮罩贴图每个像素对应的边长（米）。

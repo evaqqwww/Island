@@ -12,7 +12,7 @@
 [ext_resource type="Shader" path="res://shaders/smoke.gdshader" id="14_smoke"]
 [ext_resource type="PackedScene" path="res://assets/trees/trees.glb" id="16_trees"]
 [ext_resource type="Shader" path="res://shaders/ground.gdshader" id="17_ground"]
-[ext_resource type="Texture2D" path="res://assets/textures/lawn.png" id="18_lawn"]
+[ext_resource type="Texture2D" path="res://assets/textures/grass.png" id="18_grass"]
 [ext_resource type="Script" path="res://scripts/props.gd" id="19_props"]
 [ext_resource type="PackedScene" path="res://assets/farm/farm.glb" id="20_farm"]
 [ext_resource type="Script" path="res://scripts/grass.gd" id="21_grass"]
@@ -58,8 +58,8 @@ size = Vector2(360, 360)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
 render_priority = 0
 shader = ExtResource("17_ground")
-shader_parameter/lawn = ExtResource("18_lawn")
-shader_parameter/tint = Color(0.78, 0.84, 0.74, 1)
+shader_parameter/grass = ExtResource("18_grass")
+shader_parameter/tint = Color(1, 1, 1, 1)
 shader_parameter/tile_size = 4.0
 shader_parameter/clearing_center = Vector2(4.5, -1.7)
 shader_parameter/clearing_radii = Vector2(11, 8.4)
@@ -68,7 +68,7 @@ shader_parameter/forest_shade = 0.45
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_ground"]
 render_priority = 0
 shader = ExtResource("17_ground")
-shader_parameter/lawn = ExtResource("18_lawn")
+shader_parameter/grass = ExtResource("18_grass")
 shader_parameter/tint = Color(0.32, 0.46, 0.19, 1)
 shader_parameter/tile_size = 3.0
 shader_parameter/clearing_center = Vector2(4.5, -1.7)
@@ -85,6 +85,7 @@ shader = ExtResource("6_water")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_grass"]
 render_priority = 0
 shader = ExtResource("22_grass")
+shader_parameter/grass = ExtResource("18_grass")
 
 [sub_resource type="SphereMesh" id="SphereMesh_shrub"]
 radius = 1.0

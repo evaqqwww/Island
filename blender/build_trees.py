@@ -1,11 +1,10 @@
-"""生成树木和草坪：程序化贴图 + 树木模型，导出给 Godot。
+"""生成树木：程序化叶片贴图 + 树木模型，导出给 Godot。
 
 用法（后台运行，不影响正在打开的 Blender）：
     blender -b --factory-startup -P blender/build_trees.py
 输出：
     assets/textures/leaf_atlas.png  叶片图集：2×2 四种叶形（卵形、圆叶、窄叶、三叶簇），接近白色，
                                     颜色在 Godot 里按每棵树着色
-    assets/textures/lawn.png        可平铺的草坪纹理
     assets/trees/trees.glb          树木网格：Tree_A/B/C（近景）和 Tree_A/B/C_Far（远景，叶片更少更大）
     blender/trees.blend             以上内容的 Blender 源文件，引用两张贴图
 树冠是一个整体：每个球团里有实心内核（20 面的二十面体，取叶片贴图上一块不透明的叶面颜色，偏暗），
@@ -86,53 +85,6 @@ def leaf_atlas(size=512):
         rgb = np.where(alpha[..., None] > 0.01, rgb, fill)
         out[cy * cell:(cy + 1) * cell, cx * cell:(cx + 1) * cell, :3] = rgb
         out[cy * cell:(cy + 1) * cell, cx * cell:(cx + 1) * cell, 3] = alpha
-    return out
-
-
-def _tile_noise(size, cx, cy, rng):
-    g = rng.random((cy, cx))
-    xs = np.arange(size) * cx / size
-    ys = np.arange(size) * cy / size
-    x0 = np.floor(xs).astype(int)
-    y0 = np.floor(ys).astype(int)
-    fx = xs - x0
-    fy = ys - y0
-    fx = fx * fx * (3 - 2 * fx)
-    fy = fy * fy * (3 - 2 * fy)
-    x1 = (x0 + 1) % cx
-    y1 = (y0 + 1) % cy
-    x0 %= cx
-    y0 %= cy
-    a, b = g[np.ix_(y0, x0)], g[np.ix_(y0, x1)]
-    c, d = g[np.ix_(y1, x0)], g[np.ix_(y1, x1)]
-    FX, FY = fx[None, :], fy[:, None]
-    return (a * (1 - FX) + b * FX) * (1 - FY) + (c * (1 - FX) + d * FX) * FY
-
-
-def _fbm(size, base, octaves, rng):
-    total = np.zeros((size, size))
-    amp, norm = 1.0, 0.0
-    for o in range(octaves):
-        cells = base * 2 ** o
-        total += amp * _tile_noise(size, cells, cells, rng)
-        norm += amp
-        amp *= 0.5
-    return total / norm
-
-
-def lawn(size=1024, seed=3):
-    rng = np.random.default_rng(seed)
-    macro = _fbm(size, 4, 4, rng)
-    mid = _fbm(size, 32, 3, rng)
-    speckle = _fbm(size, 128, 3, rng)
-    v = 0.5 * macro + 0.3 * mid + 0.2 * speckle
-    lo, hi = np.percentile(v, 2), np.percentile(v, 98)
-    v = np.clip((v - lo) / (hi - lo), 0.0, 1.0)
-    dark, base, light = np.array([0.42, 0.6, 0.2]), np.array([0.53, 0.71, 0.26]), np.array([0.64, 0.79, 0.32])
-    rgb = np.where(v[..., None] < 0.5, dark + (base - dark) * (v[..., None] / 0.5),
-                   base + (light - base) * ((v[..., None] - 0.5) / 0.5))
-    out = np.ones((size, size, 4))
-    out[..., :3] = rgb
     return out
 
 
@@ -328,7 +280,6 @@ def main():
         bpy.data.objects.remove(ob, do_unlink=True)
 
     atlas = save_image("leaf_atlas", leaf_atlas(), os.path.join(TEX_DIR, "leaf_atlas.png"))
-    save_image("lawn", lawn(), os.path.join(TEX_DIR, "lawn.png"))
     leaves, bark = _materials(atlas)
 
     scn = bpy.context.scene
