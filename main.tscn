@@ -60,7 +60,7 @@ shader_parameter/tint = Color(0.78, 0.84, 0.74, 1)
 shader_parameter/tile_size = 4.0
 shader_parameter/clearing_center = Vector2(4.5, -1.7)
 shader_parameter/clearing_radii = Vector2(11, 8.4)
-shader_parameter/forest_shade = 0.68
+shader_parameter/forest_shade = 0.45
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_ground"]
 render_priority = 0
@@ -331,10 +331,11 @@ clearing = NodePath("../Regions/Clearing")
 exclude_areas = Array[NodePath]([NodePath("../Regions/Path")])
 tree_scene = ExtResource("16_trees")
 tints = PackedColorArray(0.96, 0.88, 0.82, 1, 0.96, 0.88, 0.82, 1, 0.94, 0.84, 0.76, 1, 0.86, 0.9, 0.62, 1, 0.86, 0.9, 0.62, 1, 0.76, 0.86, 0.5, 1, 0.48, 0.72, 0.62, 1, 0.68, 0.84, 0.68, 1)
-max_trees = 260
+max_trees = 900
 tree_scale = Vector2(0.8, 1.8)
 growth_distance = 22.0
-overlap = 0.62
+overlap = 0.45
+detail_distance = 8.0
 far_spacing = 9.5
 far_scale = Vector2(2.8, 3.6)
 shade_color = Color(0.55, 0.7, 0.72, 1)

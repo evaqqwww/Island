@@ -3,8 +3,9 @@ extends Node3D
 
 ## 森林：在 area 多边形内种树，避开 clearing（空地）和 exclude_areas。
 ## 树木网格来自 tree_scene（Blender 生成的 trees.glb）：名字以 _Far 结尾的是远景版本，其余是近景版本。
-## 近处（离空地 far_distance 以内）：随机种树，相邻树冠按大小保持间距；离空地越远树越大，
-## 林缘多是矮树和灌木（灌木把树干埋进地里），形成错落的层次。近景树投影。
+## 近处（离空地 far_distance 以内）：随机种树，相邻树冠按大小保持间距、互相交叠连成片；离空地越远树越大，
+## 林缘多是矮树和灌木（灌木把树干埋进地里），形成错落的层次。离空地 detail_distance 以内（焦点附近）
+## 用近景网格并投影，再往外已被景深虚化，改用远景网格、不投影。
 ## 远处：按网格均匀铺远景树，不投影，用来在任意朝向下铺满远景（远景会被移轴完全虚化）。
 ## 每棵树从 tints 里随机取色调，写进 MultiMesh 的实例颜色（着色器里和顶点色相乘）；
 ## 离空地越远，色调再逐渐乘上 shade_color，树林压暗偏冷，光线集中在空地上。
@@ -34,6 +35,8 @@ extends Node3D
 @export var bush_sink := 1.6
 ## 相邻树冠的最小间距 = (r1 + r2) * overlap，小于 1 时树冠互相交叠。
 @export var overlap := 0.75
+## 离空地多远以内用近景网格并投影。
+@export var detail_distance := 8.0
 
 @export_group("远景")
 ## 离空地多远开始改用远景树。
@@ -117,7 +120,9 @@ func _rebuild() -> void:
 		placed += 1
 		var sink := bush_sink * s if rng.randf() < bush_chance * (1.0 - g) else 0.0
 		var origin := inv * Vector3(p.x, global_position.y - sink, p.y)
-		_add_instance(near, rng.randi() % near_meshes.size(), origin, s, _shaded(linear_tints[rng.randi() % linear_tints.size()], d), rng)
+		var detailed := d < detail_distance
+		_add_instance(near if detailed else far, rng.randi() % (near_meshes if detailed else far_meshes).size(), origin, s,
+				_shaded(linear_tints[rng.randi() % linear_tints.size()], d), rng)
 
 	# 远处：抖动网格，每格一棵远景树
 	var b: Rect2 = include.bounds
