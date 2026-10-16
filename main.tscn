@@ -13,6 +13,8 @@
 [ext_resource type="PackedScene" path="res://assets/trees/trees.glb" id="16_trees"]
 [ext_resource type="Shader" path="res://shaders/ground.gdshader" id="17_ground"]
 [ext_resource type="Texture2D" path="res://assets/textures/lawn.png" id="18_lawn"]
+[ext_resource type="Script" path="res://scripts/props.gd" id="19_props"]
+[ext_resource type="PackedScene" path="res://assets/farm/farm.glb" id="20_farm"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.55, 0.66, 0.78, 1)
@@ -55,8 +57,8 @@ shader = ExtResource("17_ground")
 shader_parameter/lawn = ExtResource("18_lawn")
 shader_parameter/tint = Color(0.78, 0.84, 0.74, 1)
 shader_parameter/tile_size = 4.0
-shader_parameter/clearing_center = Vector2(4, -1.7)
-shader_parameter/clearing_radii = Vector2(10.5, 8)
+shader_parameter/clearing_center = Vector2(4.5, -1.7)
+shader_parameter/clearing_radii = Vector2(11, 8.4)
 shader_parameter/forest_shade = 0.68
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_ground"]
@@ -65,8 +67,8 @@ shader = ExtResource("17_ground")
 shader_parameter/lawn = ExtResource("18_lawn")
 shader_parameter/tint = Color(0.32, 0.46, 0.19, 1)
 shader_parameter/tile_size = 3.0
-shader_parameter/clearing_center = Vector2(4, -1.7)
-shader_parameter/clearing_radii = Vector2(10.5, 8)
+shader_parameter/clearing_center = Vector2(4.5, -1.7)
+shader_parameter/clearing_radii = Vector2(11, 8.4)
 shader_parameter/forest_shade = 0.68
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_path"]
@@ -212,9 +214,23 @@ material = SubResource("ShaderMaterial_water")
 [node name="FlowerBed" type="CSGPolygon3D" parent="Regions"]
 position = Vector3(0, 0.02, 0)
 rotation_degrees = Vector3(-90, 0, 0)
-polygon = PackedVector2Array(-2.5, 3.2, -3.5, 5, -1, 6.8, 3, 7.5, 7, 6.5, 10, 4, 11.5, 0.5, 11, -2.6, 8.5, -2.7, 6.5, -2.2, 5.2, -1, 5.5, 1.5, 4.2, 3.4, 1.5, 4)
+polygon = PackedVector2Array(2.5, -0.5, 3.6, -0.8, 4.8, -0.4, 5.4, 0.4, 5.3, 1.7, 4.6, 2.7, 3.5, 3, 2.6, 2.4, 2.4, 1)
 depth = 0.08
 material = SubResource("ShaderMaterial_bed_ground")
+
+[node name="FarmYard" type="CSGPolygon3D" parent="Regions"]
+position = Vector3(0, 0.022, 0)
+rotation_degrees = Vector3(-90, 0, 0)
+polygon = PackedVector2Array(2.9, 3.9, 9.7, 3.9, 10, 4.2, 10, 7.2, 9.7, 7.5, 2.9, 7.5, 2.6, 7.2, 2.6, 4.2)
+depth = 0.08
+material = SubResource("StandardMaterial3D_path")
+
+[node name="PastureMud" type="CSGPolygon3D" parent="Regions"]
+position = Vector3(0, 0.022, 0)
+rotation_degrees = Vector3(-90, 0, 0)
+polygon = PackedVector2Array(8.8, -2.4, 9.2, -2.9, 10.5, -2.9, 10.9, -2.4, 11.4, -1.6, 10.9, -0.6, 9.8, -0.3, 8.7, -0.8, 8.4, -1.7)
+depth = 0.08
+material = SubResource("StandardMaterial3D_path")
 
 [node name="Path" type="CSGPolygon3D" parent="Regions"]
 position = Vector3(0, 0.025, 0)
@@ -226,7 +242,7 @@ material = SubResource("StandardMaterial3D_path")
 [node name="Clearing" type="CSGPolygon3D" parent="Regions"]
 visible = false
 rotation_degrees = Vector3(-90, 0, 0)
-polygon = PackedVector2Array(15.27, 1.70, 15.05, 0.37, 14.38, -0.87, 13.47, -1.98, 12.47, -2.99, 11.39, -3.93, 10.16, -4.76, 8.74, -5.38, 7.17, -5.73, 5.56, -5.82, 4.00, -5.77, 2.46, -5.71, 0.85, -5.68, -0.87, -5.58, -2.61, -5.23, -4.16, -4.51, -5.26, -3.43, -5.82, -2.11, -5.93, -0.76, -5.83, 0.51, -5.73, 1.70, -5.69, 2.87, -5.59, 4.07, -5.24, 5.29, -4.52, 6.42, -3.46, 7.39, -2.19, 8.19, -0.80, 8.88, 0.68, 9.49, 2.28, 9.98, 4.00, 10.23, 5.74, 10.09, 7.34, 9.54, 8.67, 8.68, 9.73, 7.71, 10.69, 6.80, 11.73, 5.98, 12.89, 5.15, 14.04, 4.19, 14.91, 3.02)
+polygon = PackedVector2Array(5.59, -5.82, 7.11, -5.73, 8.67, -5.40, 10.01, -4.83, 12.92, -4.70, 14.64, -3.89, 15.27, -2.61, 15.30, 1.82, 14.95, 2.88, 14.43, 3.67, 12.91, 5.13, 12.20, 6.41, 12.20, 7.32, 11.39, 9.04, 10.11, 9.67, 7.13, 9.70, 5.83, 10.06, 4.08, 10.22, 2.34, 9.99, 0.71, 9.50, -0.78, 8.89, -2.16, 8.21, -3.40, 7.43, -4.45, 6.49, -5.18, 5.38, -5.57, 4.14, -5.69, 2.89, -5.73, 1.74, -5.83, 0.51, -5.93, -0.70, -5.83, -1.99, -5.32, -3.29, -4.25, -4.42, -2.69, -5.19, -0.92, -5.57, 0.83, -5.68, 2.44, -5.71, 4.00, -5.77)
 depth = 0.05
 
 [node name="ForestArea" type="CSGPolygon3D" parent="Regions"]
@@ -242,7 +258,7 @@ cast_shadow = 0
 material_override = ExtResource("13_bed")
 script = ExtResource("2_scatter")
 mesh = SubResource("SphereMesh_shrub")
-count = 140
+count = 18
 include_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
 scale_range = Vector2(0.55, 0.85)
 height_range = Vector2(0.45, 0.6)
@@ -253,7 +269,7 @@ cast_shadow = 0
 material_override = SubResource("ShaderMaterial_bloom")
 script = ExtResource("2_scatter")
 mesh = SubResource("SphereMesh_bloom")
-count = 1200
+count = 150
 include_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
 scale_range = Vector2(0.8, 1.3)
 y_offset_range = Vector2(0.3, 0.48)
@@ -280,6 +296,32 @@ include_areas = Array[NodePath]([NodePath("../../Regions/Pond")])
 y_offset_range = Vector2(0.08, 0.08)
 random_seed = 8
 
+[node name="Farm" type="Node3D" parent="."]
+
+[node name="Plots" type="MultiMeshInstance3D" parent="Farm"]
+script = ExtResource("19_props")
+source = ExtResource("20_farm")
+mesh_name = "FarmPlot"
+placements = PackedVector4Array(3.9, -4.85, 1, 1, 6.3, -4.85, -2, 1, 8.7, -4.85, 1.5, 1, 3.9, -6.55, -1, 1, 6.3, -6.55, 2, 1, 8.7, -6.55, -1.5, 1)
+
+[node name="PastureFence" type="MultiMeshInstance3D" parent="Farm"]
+script = ExtResource("19_props")
+source = ExtResource("20_farm")
+mesh_name = "PastureFence"
+placements = PackedVector4Array(9.85, 0.25, 0, 1)
+
+[node name="CowsStanding" type="MultiMeshInstance3D" parent="Farm"]
+script = ExtResource("19_props")
+source = ExtResource("20_farm")
+mesh_name = "Cow_Stand"
+placements = PackedVector4Array(8.1, -0.6, 75, 0.9, 11.4, 1.2, 250, 0.9)
+
+[node name="CowsGrazing" type="MultiMeshInstance3D" parent="Farm"]
+script = ExtResource("19_props")
+source = ExtResource("20_farm")
+mesh_name = "Cow_Graze"
+placements = PackedVector4Array(10.1, -1, 110, 0.9, 11.8, -0.4, 300, 0.9)
+
 [node name="Forest" type="Node3D" parent="."]
 script = ExtResource("3_forest")
 area = NodePath("../Regions/ForestArea")
@@ -301,7 +343,7 @@ fov = 24.0
 near = 0.1
 far = 300.0
 script = ExtResource("8_camera")
-target = Vector3(3.5, 0.5, -1.7)
+target = Vector3(5, 0.5, -2)
 distance = 59.0
 yaw_deg = 15.0
 pitch_deg = 45.0
