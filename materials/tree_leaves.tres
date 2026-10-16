@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/tree_leaves.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/textures/leaf_atlas.png" id="2_atlas"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/leaf_atlas = ExtResource("2_atlas")
+shader_parameter/alpha_cut = 0.45
+shader_parameter/ao_strength = 0.85
+shader_parameter/ao_light_affect = 0.45
+shader_parameter/wind_strength = 0.05
+shader_parameter/wind_speed = 1.1
+shader_parameter/canopy_height = 4.5

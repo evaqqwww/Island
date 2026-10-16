@@ -2,47 +2,46 @@
 extends Node3D
 
 ## 森林：在 area 多边形内种树，避开 clearing（空地）和 exclude_areas。
-## 近处（离空地 far_distance 以内）：随机种树，相邻树冠按大小保持间距；离空地越远树越高越大，
-## 林缘多是低矮的树和灌木，形成错落的层次。树冠和树干都投影。
-## 远处：按网格均匀铺大树冠，低面数、球体少、不投影，用来在任意朝向下铺满远景（远景会被移轴完全虚化）。
-## 所有球体按材质和远近合并成 MultiMesh，整片森林只有十次左右绘制调用。
+## 树木网格来自 tree_scene（Blender 生成的 trees.glb）：名字以 _Far 结尾的是远景版本，其余是近景版本。
+## 近处（离空地 far_distance 以内）：随机种树，相邻树冠按大小保持间距；离空地越远树越大，
+## 林缘多是矮树和灌木（灌木把树干埋进地里），形成错落的层次。近景树投影。
+## 远处：按网格均匀铺远景树，不投影，用来在任意朝向下铺满远景（远景会被移轴完全虚化）。
+## 每棵树从 tints 里随机取色调，写进 MultiMesh 的实例颜色（着色器里和顶点色相乘）。
+## 同一种网格的树合并成一个 MultiMesh，整片森林只有几次绘制调用。
 ## 区域都是平铺在地面上的 CSGPolygon3D。改了区域或参数后点「重新生成」。
 ## 实例在运行时生成，不写进场景文件。
 
 @export var area: NodePath
 @export var clearing: NodePath
 @export var exclude_areas: Array[NodePath] = []
-@export var foliage_materials: Array[Material] = []
+@export var tree_scene: PackedScene
+## 树冠色调（sRGB），每棵树随机取一个；重复的颜色出现得更多。
+@export var tints := PackedColorArray([Color(0.96, 0.88, 0.82), Color(0.86, 0.9, 0.62)])
 @export var random_seed := 1
 
 @export_group("近处树林")
-@export var max_trees := 320
-## 林缘 → 近处树林外缘的树冠半径。
-@export var canopy_radius := Vector2(1.0, 4.2)
-## 林缘 → 近处树林外缘的树干高度。
-@export var trunk_height := Vector2(0.8, 5.5)
+@export var max_trees := 260
+## 树木网格在缩放为 1 时的树冠半径（米）。
+@export var mesh_canopy_radius := 1.9
+## 林缘 → 近处树林外缘的缩放。
+@export var tree_scale := Vector2(0.55, 1.5)
 ## 离空地多远长到最大。
 @export var growth_distance := 22.0
-## 林缘处长成灌木（没有树干）的概率，越往里越低。
+## 林缘处长成灌木的概率，越往里越低。
 @export var bush_chance := 0.4
+## 灌木把树干埋进地里的深度（缩放为 1 时，米）。
+@export var bush_sink := 1.6
 ## 相邻树冠的最小间距 = (r1 + r2) * overlap，小于 1 时树冠互相交叠。
-@export var overlap := 0.7
+@export var overlap := 0.75
 
-@export_group("远景林冠")
-## 离空地多远开始改用远景林冠。
+@export_group("远景")
+## 离空地多远开始改用远景树。
 @export var far_distance := 28.0
-@export var far_spacing := 8.0
-@export var far_canopy_radius := Vector2(4.5, 7.0)
-## 远景树冠中心的高度范围。
-@export var far_height := Vector2(5.0, 8.0)
+@export var far_spacing := 7.0
+@export var far_scale := Vector2(1.5, 2.2)
 
 @export_group("")
 @export_tool_button("重新生成") var rebuild_action := _rebuild
-
-static var _sphere: SphereMesh
-static var _far_sphere: SphereMesh
-static var _trunk: CylinderMesh
-static var _trunk_material: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -54,7 +53,7 @@ func _rebuild() -> void:
 		if child.has_meta("generated"):
 			remove_child(child)
 			child.queue_free()
-	if not is_inside_tree() or foliage_materials.is_empty():
+	if not is_inside_tree() or tree_scene == null or tints.is_empty():
 		return
 	var include := Regions.from_node(get_node_or_null(area))
 	if include.is_empty():
@@ -63,28 +62,36 @@ func _rebuild() -> void:
 	var excludes := Regions.collect(self, exclude_areas)
 	if not clear.is_empty():
 		excludes.append(clear)
-	_ensure_shared()
+
+	var near_meshes: Array[Mesh] = []
+	var far_meshes: Array[Mesh] = []
+	var scene := tree_scene.instantiate()
+	for mi in scene.find_children("*", "MeshInstance3D", true, false):
+		(far_meshes if String(mi.name).ends_with("_Far") else near_meshes).append((mi as MeshInstance3D).mesh)
+	scene.free()
+	if near_meshes.is_empty():
+		return
+	if far_meshes.is_empty():
+		far_meshes = near_meshes
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = random_seed
-	var mat_count := foliage_materials.size()
-	var near_blobs := []
-	var far_blobs := []
-	for i in mat_count:
-		near_blobs.append([])
-		far_blobs.append([])
-	var trunks := []
+	var linear_tints := PackedColorArray()
+	for c in tints:
+		linear_tints.append(c.srgb_to_linear())
+	var near := _buckets(near_meshes.size())
+	var far := _buckets(far_meshes.size())
 	var inv := global_transform.affine_inverse()
 
 	# 近处：随机投点，空间网格加速邻居检查
 	var near_bounds: Rect2 = include.bounds
 	if not clear.is_empty():
 		near_bounds = clear.bounds.grow(far_distance).intersection(include.bounds)
-	var cell := maxf(2.0 * canopy_radius.y * 1.15 * overlap, 0.5)
+	var cell := maxf(2.0 * mesh_canopy_radius * tree_scale.y * 1.1 * overlap, 0.5)
 	var grid := {}
-	var trees := []
+	var placed := 0
 	var attempts := max_trees * 30
-	while trees.size() < max_trees and attempts > 0:
+	while placed < max_trees and attempts > 0:
 		attempts -= 1
 		var p := Vector2(rng.randf_range(near_bounds.position.x, near_bounds.end.x), rng.randf_range(near_bounds.position.y, near_bounds.end.y))
 		if not Regions.inside_any(p, [include]) or Regions.inside_any(p, excludes):
@@ -93,29 +100,20 @@ func _rebuild() -> void:
 		if d >= far_distance:
 			continue
 		var g := clampf(d / growth_distance, 0.0, 1.0)
-		var r := lerpf(canopy_radius.x, canopy_radius.y, g) * rng.randf_range(0.85, 1.15)
+		var s := lerpf(tree_scale.x, tree_scale.y, g) * rng.randf_range(0.9, 1.1)
+		var r := mesh_canopy_radius * s
 		var key := Vector2i(floori(p.x / cell), floori(p.y / cell))
 		if not _is_free(grid, key, p, r):
 			continue
 		if not grid.has(key):
 			grid[key] = []
 		grid[key].append([p, r])
-		trees.append([p, r, g])
+		placed += 1
+		var sink := bush_sink * s if rng.randf() < bush_chance * (1.0 - g) else 0.0
+		var origin := inv * Vector3(p.x, global_position.y - sink, p.y)
+		_add_instance(near, rng.randi() % near_meshes.size(), origin, s, linear_tints[rng.randi() % linear_tints.size()], rng)
 
-	for t in trees:
-		var p: Vector2 = t[0]
-		var r: float = t[1]
-		var g: float = t[2]
-		var base := inv * Vector3(p.x, global_position.y, p.y)
-		var canopy_y := r * 0.7
-		if rng.randf() >= bush_chance * (1.0 - g):
-			var h := lerpf(trunk_height.x, trunk_height.y, g) * rng.randf_range(0.8, 1.2)
-			var w := 0.7 + r * 0.2
-			trunks.append(Transform3D(Basis.from_scale(Vector3(w, h / _trunk.height, w)), base + Vector3(0.0, h * 0.5, 0.0)))
-			canopy_y = h + r * 0.45
-		_add_canopy(near_blobs[rng.randi() % mat_count], rng, base, r, canopy_y, rng.randi_range(4, 6), 0.9)
-
-	# 远处：抖动网格，每格一棵大树冠
+	# 远处：抖动网格，每格一棵远景树
 	var b: Rect2 = include.bounds
 	var x := b.position.x
 	while x < b.end.x:
@@ -127,28 +125,27 @@ func _rebuild() -> void:
 				continue
 			if not clear.is_empty() and Regions.distance_to_edge(p, clear) < far_distance:
 				continue
-			var r := rng.randf_range(far_canopy_radius.x, far_canopy_radius.y)
-			var base := inv * Vector3(p.x, global_position.y, p.y)
-			_add_canopy(far_blobs[rng.randi() % mat_count], rng, base, r, rng.randf_range(far_height.x, far_height.y), 3, 0.75)
+			var s := rng.randf_range(far_scale.x, far_scale.y)
+			_add_instance(far, rng.randi() % far_meshes.size(), inv * Vector3(p.x, global_position.y, p.y), s, linear_tints[rng.randi() % linear_tints.size()], rng)
 		x += far_spacing
 
-	for i in mat_count:
-		_add_multimesh(_sphere, foliage_materials[i], near_blobs[i], true)
-		_add_multimesh(_far_sphere, foliage_materials[i], far_blobs[i], false)
-	_add_multimesh(_trunk, _trunk_material, trunks, true)
+	for i in near_meshes.size():
+		_add_multimesh(near_meshes[i], near[i], true)
+	for i in far_meshes.size():
+		_add_multimesh(far_meshes[i], far[i], false)
 
 
-## 树冠：一个主球加若干个小球，flatten 越小越扁。
-func _add_canopy(out: Array, rng: RandomNumberGenerator, base: Vector3, r: float, canopy_y: float, blobs: int, flatten: float) -> void:
-	for k in blobs:
-		var s := r * (1.0 if k == 0 else rng.randf_range(0.55, 0.8))
-		var offset := Vector3(0.0, canopy_y, 0.0)
-		if k > 0:
-			var a := rng.randf() * TAU
-			var d := r * rng.randf_range(0.45, 0.75)
-			offset += Vector3(cos(a) * d, rng.randf_range(-0.35, 0.45) * r, sin(a) * d)
-		var basis_k := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * flatten * rng.randf_range(0.88, 1.05), s))
-		out.append(Transform3D(basis_k, base + offset))
+func _buckets(count: int) -> Array:
+	var result := []
+	for i in count:
+		result.append({"xforms": [], "tints": []})
+	return result
+
+
+func _add_instance(buckets: Array, index: int, origin: Vector3, s: float, tint: Color, rng: RandomNumberGenerator) -> void:
+	var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.92, 1.08), s))
+	buckets[index].xforms.append(Transform3D(b, origin))
+	buckets[index].tints.append(Color(tint.r, tint.g, tint.b, 1.0))
 
 
 func _is_free(grid: Dictionary, key: Vector2i, p: Vector2, r: float) -> bool:
@@ -163,42 +160,20 @@ func _is_free(grid: Dictionary, key: Vector2i, p: Vector2, r: float) -> bool:
 	return true
 
 
-func _add_multimesh(mesh: Mesh, material: Material, xforms: Array, shadows: bool) -> void:
+func _add_multimesh(mesh: Mesh, bucket: Dictionary, shadows: bool) -> void:
+	var xforms: Array = bucket.xforms
 	if xforms.is_empty():
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
 	mm.mesh = mesh
 	mm.instance_count = xforms.size()
 	for i in xforms.size():
 		mm.set_instance_transform(i, xforms[i])
+		mm.set_instance_color(i, bucket.tints[i])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = material
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.set_meta("generated", true)
 	add_child(mmi)
-
-
-static func _ensure_shared() -> void:
-	if _sphere:
-		return
-	_sphere = SphereMesh.new()
-	_sphere.radius = 1.0
-	_sphere.height = 2.0
-	_sphere.radial_segments = 16
-	_sphere.rings = 8
-	_far_sphere = SphereMesh.new()
-	_far_sphere.radius = 1.0
-	_far_sphere.height = 2.0
-	_far_sphere.radial_segments = 10
-	_far_sphere.rings = 5
-	_trunk = CylinderMesh.new()
-	_trunk.top_radius = 0.1
-	_trunk.bottom_radius = 0.18
-	_trunk.height = 2.6
-	_trunk.radial_segments = 8
-	_trunk.rings = 1
-	_trunk_material = StandardMaterial3D.new()
-	_trunk_material.albedo_color = Color(0.27, 0.17, 0.12)
-	_trunk_material.roughness = 1.0

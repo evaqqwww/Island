@@ -9,12 +9,12 @@
 [ext_resource type="Shader" path="res://shaders/dof.gdshader" id="7_dof"]
 [ext_resource type="Script" path="res://scripts/orbit_camera.gd" id="8_camera"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="9_hud"]
-[ext_resource type="Material" path="res://materials/foliage_beige.tres" id="10_beige"]
-[ext_resource type="Material" path="res://materials/foliage_green.tres" id="11_green"]
-[ext_resource type="Material" path="res://materials/foliage_teal.tres" id="12_teal"]
 [ext_resource type="Material" path="res://materials/foliage_bed.tres" id="13_bed"]
 [ext_resource type="Shader" path="res://shaders/smoke.gdshader" id="14_smoke"]
 [ext_resource type="Script" path="res://scripts/quality.gd" id="15_quality"]
+[ext_resource type="PackedScene" path="res://assets/trees/trees.glb" id="16_trees"]
+[ext_resource type="Shader" path="res://shaders/ground.gdshader" id="17_ground"]
+[ext_resource type="Texture2D" path="res://assets/textures/lawn.png" id="18_lawn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.55, 0.66, 0.78, 1)
@@ -51,11 +51,15 @@ adjustment_saturation = 1.12
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(360, 360)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lawn"]
-albedo_color = Color(0.2, 0.32, 0.09, 1)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_forest_floor"]
-albedo_color = Color(0.09, 0.13, 0.05, 1)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
+render_priority = 0
+shader = ExtResource("17_ground")
+shader_parameter/lawn = ExtResource("18_lawn")
+shader_parameter/tint = Color(0.78, 0.84, 0.74, 1)
+shader_parameter/tile_size = 4.0
+shader_parameter/clearing_center = Vector2(4, -1.7)
+shader_parameter/clearing_radii = Vector2(10.5, 8)
+shader_parameter/forest_shade = 0.5
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soil"]
 albedo_color = Color(0.18, 0.22, 0.09, 1)
@@ -66,18 +70,6 @@ albedo_color = Color(0.45, 0.32, 0.2, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_water"]
 render_priority = 0
 shader = ExtResource("6_water")
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_lawn_grass"]
-render_priority = 0
-shader = ExtResource("4_grass")
-shader_parameter/root_color = Color(0.1, 0.2, 0.05, 1)
-shader_parameter/tip_color = Color(0.55, 0.72, 0.26, 1)
-shader_parameter/tip_color_alt = Color(0.7, 0.74, 0.3, 1)
-shader_parameter/tip_glow = 0.06
-shader_parameter/wind_direction = Vector2(1, 0.35)
-shader_parameter/wind_strength = 0.06
-shader_parameter/wind_speed = 1.4
-shader_parameter/wind_scale = 0.18
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_grass"]
 render_priority = 0
@@ -90,23 +82,6 @@ shader_parameter/wind_direction = Vector2(1, 0.35)
 shader_parameter/wind_strength = 0.08
 shader_parameter/wind_speed = 1.4
 shader_parameter/wind_scale = 0.18
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_petal"]
-top_radius = 0.05
-bottom_radius = 0.05
-height = 0.012
-radial_segments = 6
-rings = 1
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_petal"]
-render_priority = 0
-shader = ExtResource("5_flower")
-shader_parameter/color_a = Color(1, 0.7, 0.8, 1)
-shader_parameter/color_b = Color(1, 0.95, 0.95, 1)
-shader_parameter/base_fraction = 0.0
-shader_parameter/mesh_height = 0.012
-shader_parameter/floret_bumps = 0.0
-shader_parameter/sway = 0.0
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_lupine"]
 top_radius = 0.012
@@ -231,7 +206,7 @@ directional_shadow_max_distance = 100.0
 
 [node name="Ground" type="MeshInstance3D" parent="."]
 mesh = SubResource("PlaneMesh_ground")
-surface_material_override/0 = SubResource("StandardMaterial3D_lawn")
+surface_material_override/0 = SubResource("ShaderMaterial_ground")
 
 [node name="Cabin" parent="." instance=ExtResource("1_cabin")]
 rotation_degrees = Vector3(0, -10, 0)
@@ -284,53 +259,7 @@ rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(128.50, 1.70, 127.90, -10.55, 126.10, -22.69, 123.12, -34.59, 118.98, -46.14, 113.74, -57.22, 107.43, -67.75, 100.13, -77.60, 91.89, -86.69, 82.80, -94.93, 72.95, -102.23, 62.42, -108.54, 51.34, -113.78, 39.79, -117.92, 27.89, -120.90, 15.75, -122.70, 3.50, -123.30, -8.75, -122.70, -20.89, -120.90, -32.79, -117.92, -44.34, -113.78, -55.42, -108.54, -65.95, -102.23, -75.80, -94.93, -84.89, -86.69, -93.13, -77.60, -100.43, -67.75, -106.74, -57.22, -111.98, -46.14, -116.12, -34.59, -119.10, -22.69, -120.90, -10.55, -121.50, 1.70, -120.90, 13.95, -119.10, 26.09, -116.12, 37.99, -111.98, 49.54, -106.74, 60.62, -100.43, 71.15, -93.13, 81.00, -84.89, 90.09, -75.80, 98.33, -65.95, 105.63, -55.42, 111.94, -44.34, 117.18, -32.79, 121.32, -20.89, 124.30, -8.75, 126.10, 3.50, 126.70, 15.75, 126.10, 27.89, 124.30, 39.79, 121.32, 51.34, 117.18, 62.42, 111.94, 72.95, 105.63, 82.80, 98.33, 91.89, 90.09, 100.13, 81.00, 107.43, 71.15, 113.74, 60.62, 118.98, 49.54, 123.12, 37.99, 126.10, 26.09, 127.90, 13.95)
 depth = 0.05
 
-[node name="ClearingEdge" type="CSGPolygon3D" parent="Regions"]
-visible = false
-rotation_degrees = Vector3(-90, 0, 0)
-polygon = PackedVector2Array(16.96, 1.70, 16.71, 0.17, 15.94, -1.26, 14.90, -2.53, 13.74, -3.69, 12.50, -4.77, 11.08, -5.73, 9.45, -6.44, 7.64, -6.84, 5.80, -6.95, 4.00, -6.89, 2.23, -6.82, 0.38, -6.79, -1.60, -6.67, -3.60, -6.27, -5.38, -5.45, -6.65, -4.19, -7.29, -2.68, -7.42, -1.13, -7.30, 0.34, -7.19, 1.70, -7.15, 3.05, -7.03, 4.43, -6.62, 5.82, -5.80, 7.12, -4.58, 8.24, -3.11, 9.16, -1.52, 9.95, 0.18, 10.66, 2.02, 11.23, 4.00, 11.51, 6.01, 11.35, 7.84, 10.71, 9.37, 9.73, 10.59, 8.61, 11.70, 7.56, 12.89, 6.62, 14.23, 5.67, 15.55, 4.56, 16.55, 3.21)
-depth = 0.05
-
-[node name="ForestFloor" type="CSGPolygon3D" parent="Regions"]
-position = Vector3(0, 0.015, 0)
-rotation_degrees = Vector3(-90, 0, 0)
-polygon = PackedVector2Array(128.50, 1.70, 127.90, -10.55, 126.10, -22.69, 123.12, -34.59, 118.98, -46.14, 113.74, -57.22, 107.43, -67.75, 100.13, -77.60, 91.89, -86.69, 82.80, -94.93, 72.95, -102.23, 62.42, -108.54, 51.34, -113.78, 39.79, -117.92, 27.89, -120.90, 15.75, -122.70, 3.50, -123.30, -8.75, -122.70, -20.89, -120.90, -32.79, -117.92, -44.34, -113.78, -55.42, -108.54, -65.95, -102.23, -75.80, -94.93, -84.89, -86.69, -93.13, -77.60, -100.43, -67.75, -106.74, -57.22, -111.98, -46.14, -116.12, -34.59, -119.10, -22.69, -120.90, -10.55, -121.50, 1.70, -120.90, 13.95, -119.10, 26.09, -116.12, 37.99, -111.98, 49.54, -106.74, 60.62, -100.43, 71.15, -93.13, 81.00, -84.89, 90.09, -75.80, 98.33, -65.95, 105.63, -55.42, 111.94, -44.34, 117.18, -32.79, 121.32, -20.89, 124.30, -8.75, 126.10, 3.50, 126.70, 15.75, 126.10, 27.89, 124.30, 39.79, 121.32, 51.34, 117.18, 62.42, 111.94, 72.95, 105.63, 82.80, 98.33, 91.89, 90.09, 100.13, 81.00, 107.43, 71.15, 113.74, 60.62, 118.98, 49.54, 123.12, 37.99, 126.10, 26.09, 127.90, 13.95)
-depth = 0.05
-material = SubResource("StandardMaterial3D_forest_floor")
-
-[node name="ClearingCut" type="CSGPolygon3D" parent="Regions/ForestFloor"]
-operation = 2
-position = Vector3(0, 0, 0.1)
-polygon = PackedVector2Array(15.27, 1.70, 15.05, 0.37, 14.38, -0.87, 13.47, -1.98, 12.47, -2.99, 11.39, -3.93, 10.16, -4.76, 8.74, -5.38, 7.17, -5.73, 5.56, -5.82, 4.00, -5.77, 2.46, -5.71, 0.85, -5.68, -0.87, -5.58, -2.61, -5.23, -4.16, -4.51, -5.26, -3.43, -5.82, -2.11, -5.93, -0.76, -5.83, 0.51, -5.73, 1.70, -5.69, 2.87, -5.59, 4.07, -5.24, 5.29, -4.52, 6.42, -3.46, 7.39, -2.19, 8.19, -0.80, 8.88, 0.68, 9.49, 2.28, 9.98, 4.00, 10.23, 5.74, 10.09, 7.34, 9.54, 8.67, 8.68, 9.73, 7.71, 10.69, 6.80, 11.73, 5.98, 12.89, 5.15, 14.04, 4.19, 14.91, 3.02)
-depth = 0.3
-
 [node name="Vegetation" type="Node3D" parent="."]
-
-[node name="LawnGrass" type="MultiMeshInstance3D" parent="Vegetation"]
-position = Vector3(2, 0, -4)
-cast_shadow = 0
-material_override = SubResource("ShaderMaterial_lawn_grass")
-script = ExtResource("2_scatter")
-grass_blade = true
-blade_width = 0.05
-count = 45000
-include_areas = Array[NodePath]([NodePath("../../Regions/ClearingEdge")])
-exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/Path")])
-scale_range = Vector2(0.8, 1.2)
-height_range = Vector2(0.18, 0.35)
-
-[node name="LawnFlowers" type="MultiMeshInstance3D" parent="Vegetation"]
-position = Vector3(2, 0, -4)
-cast_shadow = 0
-material_override = SubResource("ShaderMaterial_petal")
-script = ExtResource("2_scatter")
-mesh = SubResource("CylinderMesh_petal")
-count = 1500
-include_areas = Array[NodePath]([NodePath("../../Regions/ClearingEdge")])
-exclude_areas = Array[NodePath]([NodePath("../../Regions/Footprint"), NodePath("../../Regions/Pond"), NodePath("../../Regions/FlowerBed"), NodePath("../../Regions/Path")])
-scale_range = Vector2(0.8, 1.3)
-y_offset_range = Vector2(0.12, 0.28)
-max_tilt = 20.0
-random_seed = 2
 
 [node name="BedGrass" type="MultiMeshInstance3D" parent="Vegetation"]
 cast_shadow = 0
@@ -401,11 +330,14 @@ script = ExtResource("3_forest")
 area = NodePath("../Regions/ForestArea")
 clearing = NodePath("../Regions/Clearing")
 exclude_areas = Array[NodePath]([NodePath("../Regions/Path")])
-foliage_materials = Array[Material]([ExtResource("11_green"), ExtResource("10_beige"), ExtResource("12_teal"), ExtResource("11_green")])
-max_trees = 320
-canopy_radius = Vector2(1.0, 4.2)
-trunk_height = Vector2(0.8, 5.5)
+tree_scene = ExtResource("16_trees")
+tints = PackedColorArray(0.96, 0.88, 0.82, 1, 0.96, 0.88, 0.82, 1, 0.94, 0.84, 0.76, 1, 0.86, 0.9, 0.62, 1, 0.86, 0.9, 0.62, 1, 0.76, 0.86, 0.5, 1, 0.48, 0.72, 0.62, 1, 0.68, 0.84, 0.68, 1)
+max_trees = 260
+tree_scale = Vector2(0.8, 1.8)
 growth_distance = 22.0
+overlap = 0.62
+far_spacing = 6.5
+far_scale = Vector2(2, 2.8)
 
 [node name="Camera" type="Camera3D" parent="."]
 keep_aspect = 0
