@@ -46,7 +46,7 @@ SOIL = lin((104, 72, 48))
 LEAF_DARK = lin((78, 138, 56))
 LEAF_LIGHT = lin((176, 214, 120))
 
-COW_WHITE = lin((224, 220, 210))
+COW_WHITE = lin((180, 176, 167))
 COW_BLACK = lin((34, 32, 33))
 COW_PINK = lin((232, 182, 178))
 COW_NOSE = lin((196, 132, 132))
