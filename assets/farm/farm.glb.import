@@ -41,6 +41,11 @@ materials/extract_format=0
 materials/extract_path=""
 _subresources={
 "materials": {
+"farm_cow": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/cow.tres",
+"use_external/path": "res://materials/cow.tres"
+},
 "farm_props": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://materials/farm_props.tres",

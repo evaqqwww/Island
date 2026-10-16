@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/cabin.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/farm/textures/cow_albedo.png" id="2_albedo"]
+[ext_resource type="Texture2D" path="res://assets/farm/textures/cow_ao.png" id="3_ao"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_map = ExtResource("2_albedo")
+shader_parameter/normal_strength = 1.0
+shader_parameter/ao_map = ExtResource("3_ao")
+shader_parameter/tint = Color(1, 1, 1, 1)
+shader_parameter/ao_strength = 1.0
+shader_parameter/ao_light_affect = 0.4
+shader_parameter/roughness = 0.8
