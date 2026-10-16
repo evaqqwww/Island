@@ -5,8 +5,11 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
-shader_parameter/color_top = Color(0.38, 0.62, 0.24, 1)
-shader_parameter/color_bottom = Color(0.1, 0.24, 0.08, 1)
-shader_parameter/noise_amount = 0.08
-shader_parameter/noise_scale = 5.0
-shader_parameter/sway = 0.02
+shader_parameter/color_top = Color(0.4, 0.62, 0.22, 1)
+shader_parameter/color_bottom = Color(0.2, 0.36, 0.12, 1)
+shader_parameter/noise_amount = 0.18
+shader_parameter/noise_scale = 3.5
+shader_parameter/leaf_scale = 9.0
+shader_parameter/leaf_contrast = 0.35
+shader_parameter/instance_variation = 0.12
+shader_parameter/sway = 0.01
