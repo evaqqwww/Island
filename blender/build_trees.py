@@ -337,7 +337,7 @@ def main():
     objects = []
     for i, (key, (lumps, trunk)) in enumerate(VARIANTS.items()):
         for suffix, leaf_size, coverage, sides, points, row in (("", 0.55, 1.8, 5, 4, 0.0),
-                                                                ("_Far", 0.9, 1.0, 4, 3, 6.0)):
+                                                                ("_Far", 0.9, 0.5, 3, 2, 6.0)):
             mesh = build_tree(f"Tree_{key}{suffix}", lumps, trunk, leaf_size, coverage, sides, points, rng)
             mesh.materials.append(leaves)
             mesh.materials.append(bark)

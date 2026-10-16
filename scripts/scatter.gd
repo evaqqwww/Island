@@ -1,15 +1,12 @@
 @tool
 extends MultiMeshInstance3D
 
-## 在地面上随机撒实例（草叶、花、睡莲等），整片是一个 MultiMesh（一次绘制调用）。
+## 在地面上随机撒实例（花、团簇、睡莲等），整片是一个 MultiMesh（一次绘制调用）。
 ## 区域用平铺在地面上的 CSGPolygon3D 划定：include_areas 为空时撒在 area 矩形内，
 ## 否则只撒在这些多边形里；落进 exclude_areas 的点会被剔除。
 ## 改了区域形状后点检查器里的「重新生成」。实例数据在运行时生成，不写进场景文件。
 
 @export var mesh: Mesh
-## 为 true 时忽略 mesh，生成一片高度为 1 的草叶（UV.y 从根部 0 到叶尖 1）。
-@export var grass_blade := false
-@export var blade_width := 0.06
 @export var count := 1000
 ## include_areas 为空时使用的矩形（以本节点为中心，XZ 平面）。
 @export var area := Vector2(30.0, 30.0)
@@ -94,40 +91,8 @@ func _rebuild() -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
-	mm.mesh = _make_blade() if grass_blade else mesh
+	mm.mesh = mesh
 	mm.instance_count = n
 	if n > 0:
 		mm.buffer = buf
 	multimesh = mm
-
-
-## 单片草叶：三段渐窄的条带加一个尖，高度为 1，叶尖略向 +Z 弯。
-func _make_blade() -> ArrayMesh:
-	var heights := [0.0, 0.4, 0.75]
-	var widths := [1.0, 0.75, 0.45]
-	var verts := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	for k in heights.size():
-		var t: float = heights[k]
-		var hw: float = blade_width * 0.5 * widths[k]
-		var lean := t * t * 0.12
-		verts.append(Vector3(-hw, t, lean))
-		verts.append(Vector3(hw, t, lean))
-		uvs.append(Vector2(0.0, t))
-		uvs.append(Vector2(1.0, t))
-	verts.append(Vector3(0.0, 1.0, 0.12))
-	uvs.append(Vector2(0.5, 1.0))
-
-	var normals := PackedVector3Array()
-	normals.resize(verts.size())
-	normals.fill(Vector3.UP)
-
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 2, 1, 1, 2, 3, 2, 4, 3, 3, 4, 5, 4, 6, 5])
-	var blade := ArrayMesh.new()
-	blade.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return blade

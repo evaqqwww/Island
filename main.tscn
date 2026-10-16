@@ -3,7 +3,6 @@
 [ext_resource type="PackedScene" path="res://assets/cabin/cabin.glb" id="1_cabin"]
 [ext_resource type="Script" path="res://scripts/scatter.gd" id="2_scatter"]
 [ext_resource type="Script" path="res://scripts/forest.gd" id="3_forest"]
-[ext_resource type="Shader" path="res://shaders/grass.gdshader" id="4_grass"]
 [ext_resource type="Shader" path="res://shaders/flower.gdshader" id="5_flower"]
 [ext_resource type="Shader" path="res://shaders/water.gdshader" id="6_water"]
 [ext_resource type="Shader" path="res://shaders/dof.gdshader" id="7_dof"]
@@ -60,8 +59,15 @@ shader_parameter/clearing_center = Vector2(4, -1.7)
 shader_parameter/clearing_radii = Vector2(10.5, 8)
 shader_parameter/forest_shade = 0.68
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soil"]
-albedo_color = Color(0.18, 0.22, 0.09, 1)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_ground"]
+render_priority = 0
+shader = ExtResource("17_ground")
+shader_parameter/lawn = ExtResource("18_lawn")
+shader_parameter/tint = Color(0.24, 0.34, 0.15, 1)
+shader_parameter/tile_size = 3.0
+shader_parameter/clearing_center = Vector2(4, -1.7)
+shader_parameter/clearing_radii = Vector2(10.5, 8)
+shader_parameter/forest_shade = 0.68
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_path"]
 albedo_color = Color(0.45, 0.32, 0.2, 1)
@@ -70,24 +76,13 @@ albedo_color = Color(0.45, 0.32, 0.2, 1)
 render_priority = 0
 shader = ExtResource("6_water")
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_grass"]
-render_priority = 0
-shader = ExtResource("4_grass")
-shader_parameter/root_color = Color(0.06, 0.14, 0.04, 1)
-shader_parameter/tip_color = Color(0.3, 0.52, 0.16, 1)
-shader_parameter/tip_color_alt = Color(0.4, 0.58, 0.18, 1)
-shader_parameter/tip_glow = 0.03
-shader_parameter/wind_direction = Vector2(1, 0.35)
-shader_parameter/wind_strength = 0.08
-shader_parameter/wind_speed = 1.4
-shader_parameter/wind_scale = 0.18
-
 [sub_resource type="CylinderMesh" id="CylinderMesh_lupine"]
 top_radius = 0.012
 bottom_radius = 0.07
 height = 0.6
-radial_segments = 8
-rings = 8
+radial_segments = 4
+rings = 1
+cap_bottom = false
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lupine"]
 render_priority = 0
@@ -97,14 +92,14 @@ shader_parameter/color_b = Color(0.92, 0.55, 0.78, 1)
 shader_parameter/base_color = Color(0.22, 0.4, 0.14, 1)
 shader_parameter/base_fraction = 0.22
 shader_parameter/mesh_height = 0.6
-shader_parameter/floret_bumps = 0.012
+shader_parameter/floret_bumps = 0.0
 shader_parameter/sway = 0.03
 
 [sub_resource type="SphereMesh" id="SphereMesh_bed_flower"]
 radius = 0.09
 height = 0.13
-radial_segments = 8
-rings = 4
+radial_segments = 4
+rings = 2
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bed_flower"]
 render_priority = 0
@@ -118,15 +113,16 @@ shader_parameter/sway = 0.02
 [sub_resource type="SphereMesh" id="SphereMesh_clump"]
 radius = 0.32
 height = 0.5
-radial_segments = 12
-rings = 6
+radial_segments = 6
+rings = 3
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_lily_pad"]
 top_radius = 0.2
 bottom_radius = 0.2
 height = 0.015
-radial_segments = 10
-rings = 1
+radial_segments = 8
+rings = 0
+cap_bottom = false
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lily_pad"]
 render_priority = 0
@@ -140,8 +136,8 @@ shader_parameter/sway = 0.0
 [sub_resource type="SphereMesh" id="SphereMesh_pond_flower"]
 radius = 0.07
 height = 0.08
-radial_segments = 8
-rings = 4
+radial_segments = 4
+rings = 2
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_pond_flower"]
 render_priority = 0
@@ -237,7 +233,7 @@ position = Vector3(0, 0.02, 0)
 rotation_degrees = Vector3(-90, 0, 0)
 polygon = PackedVector2Array(-2.5, 3.2, -3.5, 5, -1, 6.8, 3, 7.5, 7, 6.5, 10, 4, 11.5, 0.5, 11, -2.6, 8.5, -2.7, 6.5, -2.2, 5.2, -1, 5.5, 1.5, 4.2, 3.4, 1.5, 4)
 depth = 0.08
-material = SubResource("StandardMaterial3D_soil")
+material = SubResource("ShaderMaterial_bed_ground")
 
 [node name="Path" type="CSGPolygon3D" parent="Regions"]
 position = Vector3(0, 0.025, 0)
@@ -260,18 +256,8 @@ depth = 0.05
 
 [node name="Vegetation" type="Node3D" parent="."]
 
-[node name="BedGrass" type="MultiMeshInstance3D" parent="Vegetation"]
-cast_shadow = 0
-material_override = SubResource("ShaderMaterial_bed_grass")
-script = ExtResource("2_scatter")
-grass_blade = true
-blade_width = 0.07
-count = 9000
-include_areas = Array[NodePath]([NodePath("../../Regions/FlowerBed")])
-height_range = Vector2(0.3, 0.5)
-random_seed = 3
-
 [node name="BedClumps" type="MultiMeshInstance3D" parent="Vegetation"]
+cast_shadow = 0
 material_override = ExtResource("13_bed")
 script = ExtResource("2_scatter")
 mesh = SubResource("SphereMesh_clump")
@@ -283,6 +269,7 @@ y_offset_range = Vector2(0.05, 0.15)
 random_seed = 4
 
 [node name="Lupines" type="MultiMeshInstance3D" parent="Vegetation"]
+cast_shadow = 0
 material_override = SubResource("ShaderMaterial_lupine")
 script = ExtResource("2_scatter")
 mesh = SubResource("CylinderMesh_lupine")
@@ -335,8 +322,8 @@ max_trees = 260
 tree_scale = Vector2(0.8, 1.8)
 growth_distance = 22.0
 overlap = 0.62
-far_spacing = 8.0
-far_scale = Vector2(2.4, 3.2)
+far_spacing = 9.5
+far_scale = Vector2(2.8, 3.6)
 
 [node name="Camera" type="Camera3D" parent="."]
 keep_aspect = 0
