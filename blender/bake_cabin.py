@@ -1,13 +1,15 @@
-"""木屋烘焙导出。
+"""木屋烘焙导出：高模烘焙到低模。
 
-两个集合分别合并、烘焙，再一起导出 glb：
-    CabinParts   → 网格 Cabin：自动展 UV，把程序化制作材质烘焙成颜色和 AO 贴图图集，材质 "cabin"。
-    CabinFoliage → 网格 CabinFoliage：烘焙到顶点色 "Col"（RGB 颜色，A 为 AO），
-                   保留 UV 图层 "Wind"（U 摆动权重，V 相位），材质 "cabin_foliage"。
+    CabinParts（高模）→ 只作烘焙源，合并后不导出。
+    CabinLow（低模）  → 网格 Cabin：自动展 UV；高模的颜色、法线（瓦片的倾斜、木构的侧面）和 AO
+                        （瓦片缝、窗洞、木构和藤蔓的遮蔽）用「选中到活动」烘焙到低模贴图；材质 "cabin"。
+    CabinFoliage      → 网格 CabinFoliage：烘焙到顶点色 "Col"（RGB 颜色，A 为 AO），
+                        保留 UV 图层 "Wind"（U 摆动权重，V 相位），材质 "cabin_foliage"。
 
 输出：
     assets/cabin/cabin.glb                  几何 + UV + 顶点色，材质只带名称（不内嵌贴图）
     assets/cabin/textures/cabin_albedo.png  木屋颜色
+    assets/cabin/textures/cabin_normal.png  木屋切线空间法线
     assets/cabin/textures/cabin_ao.png      木屋环境光遮蔽（含地面和植被的遮挡）
 
 Godot 导入时按材质名映射到 res://materials/cabin.tres 和 res://materials/cabin_foliage.tres。
@@ -21,12 +23,17 @@ import os
 import bmesh
 import bpy
 
-ALBEDO_SIZE = 2048
+ALBEDO_SIZE = 1024
+NORMAL_SIZE = 1024
 AO_SIZE = 1024
 COLOR_SAMPLES = 16
 AO_SAMPLES = 128
 AO_DISTANCE = 1.0
 PARTS_COLLECTION = "CabinParts"
+LOW_COLLECTION = "CabinLow"
+# 从低模表面向外推出多远开始向内找高模表面（要盖住贴墙的木构、窗台和藤蔓）
+CAGE_EXTRUSION = 0.25
+MAX_RAY_DISTANCE = 0.6
 FOLIAGE_COLLECTION = "CabinFoliage"
 EXPORT_COLLECTION = "CabinExport"
 
@@ -92,8 +99,8 @@ def _unwrap(ob):
     with _override(ob):
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.select_all(action="SELECT")
-        bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.003)
-        bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
+        bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.02)
+        bpy.ops.uv.pack_islands(rotate=True, margin=0.02)
         bpy.ops.object.mode_set(mode="OBJECT")
 
 
@@ -120,6 +127,16 @@ def _bake(ob, bake_type, samples, **kwargs):
     bpy.context.scene.cycles.samples = samples
     with _override(ob):
         bpy.ops.object.bake(type=bake_type, margin=4, use_clear=True, **kwargs)
+
+
+def _bake_from_high(high, low, bake_type, samples, **kwargs):
+    """把高模的结果烘焙到低模（选中到活动）。"""
+    bpy.context.scene.cycles.samples = samples
+    _select_only([low, high])
+    with bpy.context.temp_override(active_object=low, object=low, selected_objects=[high, low],
+                                   selected_editable_objects=[high, low]):
+        bpy.ops.object.bake(type=bake_type, margin=4, use_clear=True, use_selected_to_active=True,
+                            cage_extrusion=CAGE_EXTRUSION, max_ray_distance=MAX_RAY_DISTANCE, **kwargs)
 
 
 def _use_gpu(scn):
@@ -253,6 +270,7 @@ def _use_single_material(ob, mat):
 def bake_and_export(project_dir):
     scn = bpy.context.scene
     parts = bpy.data.collections[PARTS_COLLECTION]
+    low_src = bpy.data.collections[LOW_COLLECTION]
     foliage_src = bpy.data.collections.get(FOLIAGE_COLLECTION)
     out_dir = os.path.join(project_dir, "assets", "cabin")
     tex_dir = os.path.join(out_dir, "textures")
@@ -266,12 +284,15 @@ def bake_and_export(project_dir):
         bpy.data.objects.remove(ob, do_unlink=True)
 
     root_layer = scn.view_layers[0].layer_collection
-    sources = [parts] + ([foliage_src] if foliage_src else [])
+    sources = [parts, low_src] + ([foliage_src] if foliage_src else [])
     source_layers = [_layer_collection(root_layer, c.name) for c in sources]
     for layer in source_layers + [_layer_collection(root_layer, EXPORT_COLLECTION)]:
         layer.hide_viewport = False
 
-    cabin, cabin_mats = _merge(parts, export_coll, "Cabin")
+    high, _ = _merge(parts, export_coll, "CabinHigh")
+    cabin, _ = _merge(low_src, export_coll, "Cabin")
+    target = _node_material("cabin_bake_target")[0]
+    _use_single_material(cabin, target)
     foliage = None
     if foliage_src:
         foliage, _ = _merge(foliage_src, export_coll, "CabinFoliage")
@@ -300,15 +321,28 @@ def bake_and_export(project_dir):
         pass
 
     albedo = _new_image("cabin_albedo", ALBEDO_SIZE, non_color=False)
-    _set_bake_target(cabin_mats, albedo)
-    _bake(cabin, "DIFFUSE", COLOR_SAMPLES, pass_filter={"COLOR"})
+    _set_bake_target([target], albedo)
+    _bake_from_high(high, cabin, "DIFFUSE", COLOR_SAMPLES, pass_filter={"COLOR"})
     _save_image(albedo, os.path.join(tex_dir, "cabin_albedo.png"))
 
+    normal = _new_image("cabin_normal", NORMAL_SIZE, non_color=True)
+    _set_bake_target([target], normal)
+    _bake_from_high(high, cabin, "NORMAL", COLOR_SAMPLES, normal_space="TANGENT")
+    _save_image(normal, os.path.join(tex_dir, "cabin_normal.png"))
+
+    # AO 也从高模烘焙；低模和高模重叠，烘焙时让低模对光线不可见，避免把高模整个遮住
+    ray_flags = ("visible_camera", "visible_diffuse", "visible_glossy", "visible_transmission",
+                 "visible_volume_scatter", "visible_shadow")
+    for flag in ray_flags:
+        setattr(cabin, flag, False)
     ao = _new_image("cabin_ao", AO_SIZE, non_color=True)
-    _set_bake_target(cabin_mats, ao)
-    _bake(cabin, "AO", AO_SAMPLES)
+    _set_bake_target([target], ao)
+    _bake_from_high(high, cabin, "AO", AO_SAMPLES)
     _save_image(ao, os.path.join(tex_dir, "cabin_ao.png"))
-    _clear_bake_target(cabin_mats)
+    _clear_bake_target([target])
+    for flag in ray_flags:
+        setattr(cabin, flag, True)
+    high.hide_render = True
 
     if foliage:
         _bake_vertex_colors(foliage)
@@ -334,15 +368,19 @@ def bake_and_export(project_dir):
         except TypeError:
             bpy.ops.export_scene.gltf(**options, export_colors=True)
 
-    # 临时地面在导出之后再删：导出前删除对象会让依赖图引用失效
-    bpy.data.objects.remove(ground, do_unlink=True)
-    bpy.data.meshes.remove(ground_mesh)
+    # 临时对象在导出之后再删：导出前删除对象会让依赖图引用失效
+    high_triangles = sum(len(p.vertices) - 2 for p in high.data.polygons)
+    for ob in (ground, high):
+        mesh = ob.data
+        bpy.data.objects.remove(ob, do_unlink=True)
+        bpy.data.meshes.remove(mesh)
     bpy.context.view_layer.update()
     for layer in source_layers:
         layer.hide_viewport = True
     return {
         "glb": glb,
         "device": device,
+        "high_triangles": high_triangles,
         "cabin_triangles": sum(len(p.vertices) - 2 for p in cabin.data.polygons),
         "foliage_triangles": sum(len(p.vertices) - 2 for p in foliage.data.polygons) if foliage else 0,
         "foliage_uv": [uv.name for uv in foliage.data.uv_layers] if foliage else [],

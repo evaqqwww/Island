@@ -1,11 +1,13 @@
-"""生成占位木屋：建模 + 程序化制作材质。
+"""生成占位木屋：高模 + 低模 + 程序化制作材质。
 
-Cabin 场景里有两个集合，由 bake_cabin.py 用不同方式烘焙：
-    CabinParts   硬表面部件（墙、屋顶瓦片、木构、烟囱、门窗、老虎窗花箱、灯柱、壁灯、栅栏），
-                 烘焙到颜色 + AO 贴图图集。
-    CabinFoliage 藤蔓和墙根花丛，叶片多而小，烘焙到顶点色（RGB 颜色，A 为 AO）。
-                 UV 图层 "Wind" 存摆动数据：U 为摆动权重（茎接近 0，叶尖为 1），V 为随机相位。
-材质用程序化节点做细节（木板缝、瓦片和叶片色差、石缝、边缘高光）。
+Cabin 场景里有三个集合，由 bake_cabin.py 处理：
+    CabinParts   高模，只作烘焙源：墙、屋顶瓦片、木构、烟囱、门窗、老虎窗花箱、灯柱、壁灯、栅栏、藤蔓，
+                 材质用程序化节点做细节（木板缝、瓦片和叶片色差、石缝、边缘高光）。
+    CabinLow     导出用的低模（约一千个三角形）：贴在墙上的木构、门窗、藤蔓都不建几何，
+                 屋顶是两块屋面板。高模的颜色烘焙到低模的贴图上。
+    CabinFoliage 墙根花丛（实心内核 + 少量叶片 + 小花），烘焙到顶点色（RGB 颜色，A 为 AO）。
+                 UV 图层 "Wind" 存摆动数据：U 为摆动权重，V 为随机相位。
+面数按当前相机（45～70 米、手机竖屏）下木屋只有几十到一百多像素来定。
 
 坐标：Blender 单位为米，-Y 为正面（门所在的山墙），导出到 Godot 后正面朝 +Z。
 """
@@ -147,14 +149,24 @@ def _mottled_mat(name, base, scale, lo, hi, wear=False, rough=0.85):
     return m
 
 
-def _island_mat(name, stops, lo=0.9, hi=1.05, interp="LINEAR"):
-    """每个独立零件（瓦片、石块、花）随机取色。"""
+def _island_mat(name, stops, lo=0.9, hi=1.05, interp="LINEAR", crevice=0.0):
+    """每个独立零件（瓦片、石块、花）随机取色。
+    crevice > 0 时用局部 AO 把零件之间的缝隙和边缘压暗，烘焙到低模后仍能看出一片片的瓦片。"""
     m, nt, bsdf = _new_mat(name)
     co = _obj_coords(nt)
     geo = _node(nt, "ShaderNodeNewGeometry", -800, 300)
     r = _ramp(nt, stops, -500, 300, interp)
     nt.links.new(geo.outputs["Random Per Island"], r.inputs["Fac"])
-    nt.links.new(_scale_color(nt, r.outputs["Color"], _noise_factor(nt, co, 6.0, lo, hi)), bsdf.inputs["Base Color"])
+    f = _noise_factor(nt, co, 6.0, lo, hi)
+    if crevice > 0.0:
+        ao = _node(nt, "ShaderNodeAmbientOcclusion", -800, -600, only_local=True, samples=16)
+        ao.inputs["Distance"].default_value = 0.08
+        mr = _node(nt, "ShaderNodeMapRange", -600, -600)
+        mr.inputs[3].default_value = 1.0 - crevice
+        mr.inputs[4].default_value = 1.0
+        nt.links.new(ao.outputs["AO"], mr.inputs[0])
+        f = _mul(nt, f, mr.outputs["Result"], -400, -600)
+    nt.links.new(_scale_color(nt, r.outputs["Color"], f), bsdf.inputs["Base Color"])
     return m
 
 
@@ -184,7 +196,8 @@ def _materials():
     return {
         "wall": _planks_mat("cabin_wall", (226, 214, 186), "Z", 1.6, 0.78, wear_strength=0.1),
         "timber": _mottled_mat("cabin_timber", (106, 76, 50), 7.0, 0.8, 1.1, wear=True),
-        "roof": _island_mat("cabin_roof", [(0.0, _lin((88, 76, 74))), (0.5, _lin((106, 92, 86))), (1.0, _lin((74, 66, 66)))]),
+        "roof": _island_mat("cabin_roof", [(0.0, _lin((76, 65, 63))), (0.5, _lin((92, 79, 74))), (1.0, _lin((63, 56, 56)))],
+                            crevice=0.75),
         "stone": _stone_mat("cabin_stone", (112, 114, 102)),
         "chimney": _island_mat("cabin_chimney", [(0.0, _lin((80, 92, 84))), (0.5, _lin((100, 108, 98))), (1.0, _lin((72, 80, 76)))]),
         "door": _planks_mat("cabin_door", (98, 72, 52), "X", 1.9, 0.45),
@@ -336,17 +349,21 @@ def _vine(bm, uv, origin, u, n, a_start, a_range, z_max, steps):
             prev = pos
 
 
-def _bush(bm, uv, center, radius, height, leaves=120, blooms=12):
-    """墙根花丛：半椭球体表面朝外的叶片（槽 0）加顶部的小花（槽 1）。"""
+def _bush(bm, uv, center, radius, height, leaves=30, blooms=6):
+    """墙根花丛：实心内核和表面朝外的叶片（槽 0）加顶部的小花（槽 1）。"""
     c = Vector(center)
+    core = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=1.0,
+                                      matrix=Matrix.Translation(c + Vector((0, 0, height * 0.4)))
+                                      @ Matrix.Diagonal((radius * 0.85, radius * 0.85, height * 0.6, 1.0)))
+    _set_wind({f for v in core["verts"] for f in v.link_faces}, uv, 0.2, random.random(), 0)
     for _ in range(leaves):
         th = random.uniform(0, math.tau)
         phi = random.uniform(0, math.pi * 0.48)
         d = Vector((math.sin(phi) * math.cos(th), math.sin(phi) * math.sin(th), math.cos(phi)))
-        s = random.uniform(0.6, 1.0)
+        s = random.uniform(0.85, 1.05)
         p = c + Vector((d.x * radius * s, d.y * radius * s, d.z * height * s))
         tip = d.cross(Vector((0, 0, 1))) * random.uniform(-1, 1) + Vector((0, 0, 1)) * random.uniform(0.2, 1.0) + d * 0.5
-        vs, faces = _leaf(bm, p, tip, d, random.uniform(0.13, 0.22), random.uniform(0.09, 0.15))
+        vs, faces = _leaf(bm, p, tip, d, random.uniform(0.25, 0.38), random.uniform(0.18, 0.26))
         w = 0.3 + 0.7 * max(p.z - c.z, 0.0) / height
         _set_wind(faces, uv, w, random.random(), 0)
     for _ in range(blooms):
@@ -354,7 +371,7 @@ def _bush(bm, uv, center, radius, height, leaves=120, blooms=12):
         phi = random.uniform(0, math.pi / 3)
         d = Vector((math.sin(phi) * math.cos(th), math.sin(phi) * math.sin(th), math.cos(phi)))
         p = c + Vector((d.x * radius, d.y * radius, d.z * height)) * 1.02
-        res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=random.uniform(0.035, 0.055), matrix=Matrix.Translation(p))
+        res = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=random.uniform(0.05, 0.07), matrix=Matrix.Translation(p))
         faces = {f for v in res["verts"] for f in v.link_faces}
         _set_wind(faces, uv, 0.6, random.random(), 1)
 
@@ -562,8 +579,8 @@ def build(scene_name="Cabin", seed=7):
     make_obj("LanternFrames", bm_frame, M["metal"], 0.004, 1)
     make_obj("LanternGlass", bm_glass, M["lamp_glass"])
 
-    # 正面左侧的小院栅栏：立柱略歪，两道横杆，个别横杆缺失或掉落
-    bm = bmesh.new()
+    # 正面左侧的小院栅栏：立柱略歪，两道横杆，个别横杆缺失或掉落（低模用同一份数据）
+    fence_boxes = []
     fence_line = [Vector((-0.1, -2.2, 0)), Vector((-0.1, -3.25, 0)), Vector((-2.0, -3.25, 0)), Vector((-2.0, -1.3, 0)), Vector((-1.7, -1.3, 0))]
     posts = []
     for p0, p1 in zip(fence_line, fence_line[1:]):
@@ -575,7 +592,7 @@ def build(scene_name="Cabin", seed=7):
     for p in posts:
         h = random.uniform(0.72, 0.86)
         tilt = Vector((random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05), 1)).normalized()
-        _add_box(bm, p + tilt * h / 2, tilt.cross(Vector((0, 1, 0))).normalized(), Vector((0, 1, 0)), tilt, 0.04, 0.04, h / 2)
+        fence_boxes.append((p + tilt * h / 2, tilt.cross(Vector((0, 1, 0))).normalized(), Vector((0, 1, 0)), tilt, 0.04, 0.04, h / 2))
         tops.append((p, tilt))
     for (p0, t0), (p1, t1) in zip(tops, tops[1:]):
         for rail_z in (0.3, 0.6):
@@ -589,16 +606,19 @@ def build(scene_name="Cabin", seed=7):
             side = d.normalized().cross(Vector((0, 0, 1)))
             if side.length < 1e-3:
                 continue
-            _add_box(bm, (a + b) / 2, side.normalized(), d.normalized(), d.normalized().cross(side).normalized(), 0.018, d.length / 2 + 0.03, 0.03)
+            fence_boxes.append(((a + b) / 2, side.normalized(), d.normalized(), d.normalized().cross(side).normalized(), 0.018, d.length / 2 + 0.03, 0.03))
+    bm = bmesh.new()
+    for box in fence_boxes:
+        _add_box(bm, *box)
     make_obj("Fence", bm, M["fence"], 0.008, 1)
 
-    # 藤蔓（正面左角、门右侧、东墙靠前），烘焙到顶点色
+    # 藤蔓（正面左角、门右侧、东墙靠前），只作烘焙源，颜色烘焙到低模墙面
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("Wind")
     _vine(bm, uv, Vector((0, -HD, 0)), Vector((1, 0, 0)), Vector((0, -1, 0)), -1.35, (-1.55, -1.12), 3.0, 32)
     _vine(bm, uv, Vector((0, -HD, 0)), Vector((1, 0, 0)), Vector((0, -1, 0)), 1.4, (1.27, 1.55), 2.6, 24)
     _vine(bm, uv, Vector((HW, 0, 0)), Vector((0, -1, 0)), Vector((1, 0, 0)), 1.6, (0.9, 1.95), 3.0, 34)
-    make_obj("Vines", bm, [M["stem"], M["vine_leaf"], M["bloom"]], target=foliage_coll)
+    make_obj("Vines", bm, [M["stem"], M["vine_leaf"], M["bloom"]])
 
     # 墙根花丛
     bm = bmesh.new()
@@ -610,7 +630,83 @@ def build(scene_name="Cabin", seed=7):
     ):
         _bush(bm, uv, center, r, h)
     make_obj("Bushes", bm, [M["bush_leaf"], M["bloom"]], target=foliage_coll)
+
+    _build_low(scn, root, fence_boxes)
     return scn
+
+
+def _build_low(scn, root, fence_boxes):
+    """导出用的低模：只保留轮廓，细节由高模烘焙到贴图。"""
+    coll = bpy.data.collections.new("CabinLow")
+    scn.collection.children.link(coll)
+
+    def low_obj(name, bm):
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        me = bpy.data.meshes.new("cabin_low_" + name)
+        bm.to_mesh(me)
+        bm.free()
+        ob = bpy.data.objects.new(name + "_Low", me)
+        coll.objects.link(ob)
+        ob.parent = root
+
+    dy = DORMER_Y
+    bm = bmesh.new()
+    prof = [(-HW, BASE), (HW, BASE), (HW, EAVE), (0, RIDGE), (-HW, EAVE)]
+    front = [bm.verts.new((x, -HD, z)) for x, z in prof]
+    back = [bm.verts.new((x, HD, z)) for x, z in prof]
+    bm.faces.new(front)
+    bm.faces.new(list(reversed(back)))
+    for i in range(5):
+        j = (i + 1) % 5
+        bm.faces.new((front[i], front[j], back[j], back[i]))
+    _aabb(bm, (0.68, dy, 3.9), (0.47, 0.42, 0.7))
+    _prism(bm, [(dy - 0.42, 4.6), (dy + 0.42, 4.6), (dy, 4.93)], 0.21, 1.15)
+    _aabb(bm, (1.33, dy, 3.86), (0.11, 0.3, 0.07))                       # 花箱
+    low_obj("Walls", bm)
+
+    bm = bmesh.new()
+    _aabb(bm, (0, 0, 0.2), (HW + 0.12, HD + 0.12, 0.2))
+    _aabb(bm, (0.55, -HD - 0.32, 0.2), (0.48, 0.2, 0.2))
+    _aabb(bm, (0.55, -HD - 0.62, 0.1), (0.48, 0.12, 0.1))
+    low_obj("Foundation", bm)
+
+    # 屋面板包住瓦片的外轮廓
+    bm = bmesh.new()
+    for side in (-1, 1):
+        d = Vector((side * HW, 0, EAVE - RIDGE)).normalized()
+        n = Vector((side * (RIDGE - EAVE), 0, HW)).normalized()
+        _add_box(bm, Vector((0, 0, RIDGE)) + d * 1.8 + n * 0.055, (0, 1, 0), d, n, HD + 0.35, 1.86, 0.055)
+    _add_box(bm, (0, 0, RIDGE + 0.16), (0, 1, 0), (1, 0, 1), (-1, 0, 1), HD + 0.38, 0.14, 0.14)
+    a = math.radians(28)
+    pd = Vector((0, -math.cos(a), -math.sin(a)))
+    pn = Vector((0, -math.sin(a), math.cos(a)))
+    _add_box(bm, Vector((0.55, -HD - 0.02, 2.62)) + pd * 0.45 + pn * 0.04, (1, 0, 0), pd, pn, 0.7, 0.5, 0.045)
+    for sy in (-1, 1):
+        top = Vector((0, dy, 4.97))
+        low = Vector((0, dy + sy * 0.62, 4.48))
+        dv = (low - top).normalized()
+        nv = Vector((0, -sy * dv.z, sy * dv.y)).normalized()
+        if nv.z < 0:
+            nv = -nv
+        _add_box(bm, (top + low) / 2 + Vector((0.76, 0, 0)) + nv * 0.03, (1, 0, 0), dv, nv,
+                 0.62, (low - top).length / 2 + 0.04, 0.035)
+    low_obj("Roof", bm)
+
+    bm = bmesh.new()
+    _aabb(bm, (-0.78, -1.0, (3.6 + 6.48) / 2), (0.31, 0.31, (6.48 - 3.6) / 2))
+    _aabb(bm, (-0.78, -1.0, 6.53), (0.38, 0.38, 0.06))
+    low_obj("Chimney", bm)
+
+    bm = bmesh.new()
+    _tube(bm, _bezier(Vector((1.45, -3.15, 0.0)), Vector((1.6, -3.15, 1.1)), Vector((1.38, -3.12, 2.3)), 4),
+          [0.065, 0.058, 0.052, 0.045], 4)
+    _beam(bm, (1.39, -3.12, 2.17), (0.92, -3.12, 2.26), (0, -1, 0), 0.03, 0.03)
+    _aabb(bm, (0.97, -3.12, 1.92), (0.08, 0.08, 0.17))                   # 吊灯
+    _aabb(bm, (-0.2, -HD - 0.2, 2.22), (0.015, 0.13, 0.015))             # 壁灯支架
+    _aabb(bm, (-0.2, -HD - 0.3, 2.07), (0.065, 0.065, 0.14))             # 壁灯
+    for box in fence_boxes:
+        _add_box(bm, *box)
+    low_obj("Props", bm)
 
 
 if __name__ == "__main__":

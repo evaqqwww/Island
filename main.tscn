@@ -11,7 +11,6 @@
 [ext_resource type="Script" path="res://scripts/hud.gd" id="9_hud"]
 [ext_resource type="Material" path="res://materials/foliage_bed.tres" id="13_bed"]
 [ext_resource type="Shader" path="res://shaders/smoke.gdshader" id="14_smoke"]
-[ext_resource type="Script" path="res://scripts/quality.gd" id="15_quality"]
 [ext_resource type="PackedScene" path="res://assets/trees/trees.glb" id="16_trees"]
 [ext_resource type="Shader" path="res://shaders/ground.gdshader" id="17_ground"]
 [ext_resource type="Texture2D" path="res://assets/textures/lawn.png" id="18_lawn"]
@@ -359,11 +358,6 @@ cast_shadow = 0
 extra_cull_margin = 16384.0
 mesh = SubResource("QuadMesh_fullscreen")
 material_override = SubResource("ShaderMaterial_dof")
-
-[node name="Quality" type="Node" parent="."]
-script = ExtResource("15_quality")
-dof_path = NodePath("../Camera/DOF")
-sun_path = NodePath("../Sun")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
